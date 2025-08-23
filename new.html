@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>新規昆虫登録</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="index.html"><img src="logo.png" alt="空想昆虫図鑑" style="height:100px;"></a>
+    </div>
+    <nav>
+      <a href="index.html">トップ</a>
+      <a href="new.html">新規作成</a>
+      <a href="list.html">リスト</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>新規昆虫登録</h2>
+    <form id="newForm">
+      <label>名称 <input type="text" id="name" required></label><br>
+      <label>登録者 <input type="text" id="user" required></label><br>
+      <label>説明 <textarea id="description"></textarea></label><br>
+      <label>昆虫の絵 (画像ファイル)<input type="file" id="image" accept="image/*"></label><br>
+      <label>更新キー（任意・共同作業用）<input type="password" id="updateKey"></label><br>
+      <button type="submit">登録する</button>
+    </form>
+  </main>
+
+  <script>
+    // ユーザーID取得
+    let currentUserId = localStorage.getItem("userId");
+    if (!currentUserId) {
+      currentUserId = "u-" + Math.random().toString(36).substr(2,9);
+      localStorage.setItem("userId", currentUserId);
+    }
+
+    document.getElementById("newForm").addEventListener("submit", function(e){
+      e.preventDefault();
+      let insects = JSON.parse(localStorage.getItem("insects") || "[]");
+
+      // 管理人以外は5分制限
+      if (currentUserId !== "kanrinin") {
+        let lastNewTime = localStorage.getItem("lastNewTime");
+        let now = Date.now();
+        if (lastNewTime && now - lastNewTime < 5*60*1000) {
+          alert("作品は5分おきにしか登録できません！");
+          return;
+        }
+        localStorage.setItem("lastNewTime", Date.now());
+      }
+
+      let file = document.getElementById("image").files[0];
+
+      if (!file) {
+        saveInsect("", insects);
+        return;
+      }
+
+      let reader = new FileReader();
+      reader.onloadend = function(ev){
+        if (ev.target.error) {
+          alert("画像の読み込みに失敗しました: " + ev.target.error);
+          return;
+        }
+
+        let img = new Image();
+        img.onload = function() {
+          let canvas = document.createElement("canvas");
+          let ctx = canvas.getContext("2d");
+
+          let maxWidth = 800;
+          let scale = Math.min(maxWidth / img.width, 1);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          let resizedData = canvas.toDataURL("image/jpeg", 0.8);
+          saveInsect(resizedData, insects);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function saveInsect(imageData, insects){
+      let insect = {
+        id: Date.now(),
+        serial: insects.length + 1,
+        name: document.getElementById("name").value,
+        user: document.getElementById("user").value,
+        userId: currentUserId,
+        description: document.getElementById("description").value,
+        image: imageData,
+        date: new Date().toLocaleString(),
+        updateKey: document.getElementById("updateKey").value || "",
+        comments: [],
+        views: 0,
+        lastUpdate: null,
+        lastUpdater: null
+      };
+      insects.push(insect);
+      localStorage.setItem("insects", JSON.stringify(insects));
+      location.href="list.html";
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>空想昆虫 - トップ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="index.html"><img src="logo.png" alt="空想昆虫図鑑" style="height:100px;"></a>
+    </div>
+    <nav>
+      <a href="index.html">トップ</a>
+      <a href="new.html">新規作成</a>
+      <a href="list.html">リスト</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>空想昆虫へようこそ</h2>
+    <p>
+      このサイトでは、飼っている昆虫などを登録できます。<br>
+      ユーモア溢れる昆虫や、ちょっとした思い付きなど、自由にご使用ください。<br>
+      登録された昆虫には、コメントする事が可能ですので、ディスカッションの場としても活用ください。
+    </p>
+
+    <h2>新規作成</h2>
+    <p>空想昆虫を登録する場合は こちら → <a href="new.html">新規作成</a></p>
+    
+    <h2>注意点</h2>
+    <p>・IDが「kanrinin」でない場合、偽物です。</p>
+      
+<p>・追加してほしいものやバグ報告は、「管理人への報告」という作品にご連絡下さい。</p>
+
+    <h2>最新昆虫リスト</h2>
+    <table border="1" id="latestList"></table>
+    <p><a href="list.html">もっと見る</a></p>
+
+    <h2>最新コメント</h2>
+    <table border="1" id="latestComments"></table>
+    <p><a href="comments.html">もっと見る</a></p>
+  </main>
+
+  <script>
+    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
+
+    // 最新作品リスト
+    const latestList = document.getElementById("latestList");
+    let latest = [...insects].sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,5);
+    latestList.innerHTML = "<tr><th>No.</th><th>名称</th><th>作成者</th><th>コメント数</th><th>アクセス数</th></tr>" +
+      latest.map(i => `<tr>
+        <td>${i.serial}</td>
+        <td><a href="detail.html?id=${i.id}">${i.name}</a></td>
+        <td>${i.user}</td>
+        <td>${countComments(i.comments)}</td>
+        <td>${i.views||0}</td>
+      </tr>`).join("");
+
+    // コメント数カウント
+    function countComments(comments) {
+      if (!comments) return 0;
+      return comments.reduce((s,c)=>s+1+countComments(c.replies||[]),0);
+    }
+
+    // 最新コメントリスト
+    let comments = [];
+    insects.forEach(i => {
+      (i.comments||[]).forEach(c => collectComments(c,i));
+    });
+    function collectComments(c,insect) {
+      comments.push({...c,insectName:insect.name,insectId:insect.id});
+      (c.replies||[]).forEach(r=>collectComments(r,insect));
+    }
+    let latestComments = comments.sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+    document.getElementById("latestComments").innerHTML =
+      "<tr><th>作品</th><th>ユーザー</th><th>コメント</th><th>日付</th></tr>"+
+      latestComments.map(c=>`<tr>
+        <td><a href="detail.html?id=${c.insectId}">${c.insectName}</a></td>
+        <td>${c.user}</td>
+        <td>${c.text}</td>
+        <td>${c.date}</td>
+      </tr>`).join("");
+  </script>
+</body>
+</html>

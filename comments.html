@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>最新コメント一覧</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+    th { background: #eee; }
+    .search-box { margin-bottom: 10px; }
+    .search-box input { margin-right: 5px; }
+    button.block-btn { background: red; color: white; border: none; padding: 3px 6px; cursor: pointer; }
+    button.unblock-btn { background: green; color: white; border: none; padding: 3px 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="index.html"><img src="logo.png" alt="空想昆虫図鑑" style="height:100px;"></a>
+    </div>
+    <nav>
+      <a href="index.html">トップ</a>
+      <a href="new.html">新規作成</a>
+      <a href="list.html">リスト</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>全コメント一覧</h2>
+
+    <div class="search-box">
+      <label>説明: <input type="text" id="searchDescription"></label>
+      <label>No.: <input type="text" id="searchNo" placeholder="例: 5~10"></label>
+      <label>名称: <input type="text" id="searchName"></label>
+      <label>作成者: <input type="text" id="searchAuthor"></label>
+      <label>ID: <input type="text" id="searchId"></label>
+      <label>UserID: <input type="text" id="searchUserId"></label>
+    </div>
+
+    <label for="commentSort">並び替え：</label>
+    <select id="commentSort">
+      <option value="newest">新しい順</option>
+      <option value="oldest">古い順</option>
+      <option value="likes">高評価順</option>
+    </select>
+
+    <table id="allComments"></table>
+    <button id="moreBtn" style="margin-top:10px; display:none;">もっと見る</button>
+  </main>
+
+  <script>
+    // ===== ログイン中のユーザー（仮の処理） =====
+    let currentUserId = localStorage.getItem("currentUserId") || "guest";
+
+    // ===== 荒らし管理 =====
+    let blockedUsers = JSON.parse(localStorage.getItem("blockedUsers") || "[]");
+
+    function blockUser(userId) {
+      if (!blockedUsers.includes(userId)) {
+        blockedUsers.push(userId);
+        localStorage.setItem("blockedUsers", JSON.stringify(blockedUsers));
+        alert(userId + " をブロックしました");
+        renderComments(true);
+      }
+    }
+
+    function unblockUser(userId) {
+      blockedUsers = blockedUsers.filter(u => u !== userId);
+      localStorage.setItem("blockedUsers", JSON.stringify(blockedUsers));
+      alert(userId + " のブロックを解除しました");
+      renderComments(true);
+    }
+
+    function isBlocked(userId) {
+      if (userId === "kanrinin") return false; // 管理人はブロックされない
+      return blockedUsers.includes(userId);
+    }
+
+    // ===== コメント収集 =====
+    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
+    let comments = [];
+
+    insects.forEach(insect => {
+      let commentCounter = 1; // 作品ごとにリセット
+      (insect.comments || []).forEach(c => {
+        collectComments(c, insect, () => commentCounter++);
+      });
+    });
+
+    function collectComments(c, insect, counterFunc) {
+      comments.push({
+        ...c,
+        insectName: insect.name,
+        insectId: insect.id,
+        insectDescription: insect.description,
+        insectAuthor: insect.user,
+        displayNo: counterFunc()
+      });
+      (c.replies || []).forEach(r => collectComments(r, insect, counterFunc));
+    }
+
+    // ===== 日付関数 =====
+    function getDate(c) {
+      return new Date(c.date || c.time || c.timestamp || 0);
+    }
+
+    // ===== 並び替え =====
+    function sortComments(type, list) {
+      let sorted = [...list];
+      switch (type) {
+        case "newest": sorted.sort((a,b) => getDate(b) - getDate(a)); break;
+        case "oldest": sorted.sort((a,b) => getDate(a) - getDate(b)); break;
+        case "likes": sorted.sort((a,b) => (b.likes || 0) - (a.likes || 0)); break;
+      }
+      return sorted;
+    }
+
+    // ===== フィルタリング =====
+    function filterComments(list) {
+      let desc = document.getElementById("searchDescription").value.toLowerCase();
+      let no = document.getElementById("searchNo").value;
+      let name = document.getElementById("searchName").value.toLowerCase();
+      let author = document.getElementById("searchAuthor").value.toLowerCase();
+      let id = document.getElementById("searchId").value;
+      let userId = document.getElementById("searchUserId").value;
+
+      return list.filter(c => {
+        if (desc && !(c.insectDescription || "").toLowerCase().includes(desc)) return false;
+        if (name && !(c.insectName || "").toLowerCase().includes(name)) return false;
+        if (author && !(c.insectAuthor || "").toLowerCase().includes(author)) return false;
+        if (id && String(c.insectId) !== id) return false;
+        if (userId && String(c.userId || "") !== userId) return false;
+
+        if (no) {
+          let range = no.split("~").map(x => parseInt(x.trim()));
+          if (range.length === 2) {
+            if (!(c.displayNo >= range[0] && c.displayNo <= range[1])) return false;
+          } else if (range.length === 1 && no.trim() !== "") {
+            if (c.displayNo !== range[0]) return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    // ===== ページング =====
+    let perPage = 10;
+    let currentPage = 1;
+    let sortedGlobal = [];
+
+    function renderComments(reset=true) {
+      if (reset) currentPage = 1;
+      let sortType = document.getElementById("commentSort").value;
+
+      let filtered = filterComments(comments);
+      sortedGlobal = sortComments(sortType, filtered);
+
+      let visible = sortedGlobal.slice(0, currentPage * perPage);
+
+      document.getElementById("allComments").innerHTML =
+        "<tr><th>No.</th><th>作品</th><th>作成者</th><th>ユーザー</th><th>UserID</th><th>コメント</th><th>日付</th><th>👍</th><th>操作</th></tr>" +
+        visible.map(c => `<tr>
+          <td>${c.displayNo}</td>
+          <td><a href="detail.html?id=${c.insectId}">${c.insectName}</a></td>
+          <td>${c.insectAuthor || ""}</td>
+          <td>${c.user || ""}</td>
+          <td>${c.userId || ""}</td>
+          <td>${c.text || ""}</td>
+          <td>${c.date || c.time || c.timestamp || ""}</td>
+          <td>${c.likes || 0}</td>
+          <td>
+            ${(currentUserId === "kanrinin" && c.userId) 
+              ? (isBlocked(c.userId)
+                  ? `<button class="unblock-btn" onclick="unblockUser('${c.userId}')">解除</button>`
+                  : `<button class="block-btn" onclick="blockUser('${c.userId}')">ブロック</button>`)
+              : ""}
+            ${isBlocked(c.userId) ? "🚫" : ""}
+          </td>
+        </tr>`).join("");
+
+      document.getElementById("moreBtn").style.display =
+        visible.length < sortedGlobal.length ? "block" : "none";
+    }
+
+    // ===== イベント =====
+    document.querySelectorAll(".search-box input").forEach(inp =>
+      inp.addEventListener("input", () => renderComments(true))
+    );
+    document.getElementById("commentSort").addEventListener("change", () => renderComments(true));
+    document.getElementById("moreBtn").addEventListener("click", () => {
+      currentPage++;
+      renderComments(false);
+    });
+
+    // 初期表示
+    renderComments();
+  </script>
+</body>
+</html>

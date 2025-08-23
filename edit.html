@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>作品更新</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="index.html"><img src="logo.png" alt="空想昆虫図鑑" style="height:100px;"></a>
+    </div>
+    <nav>
+      <a href="index.html">トップ</a>
+      <a href="new.html">新規作成</a>
+      <a href="list.html">リスト</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>作品を更新</h2>
+    <form id="editForm">
+      <p>名称: <input type="text" id="name" required></p>
+      <p>作成者: <input type="text" id="user" required></p>
+      <p>説明: <textarea id="description"></textarea></p>
+      <p>画像URL: <input type="text" id="image"></p>
+      <p>更新キー: <input type="password" id="updateKey" required></p>
+      <button type="submit">更新する</button>
+    </form>
+    <p><a href="index.html">トップへ戻る</a></p>
+  </main>
+
+  <script>
+    let params = new URLSearchParams(location.search);
+    let id = parseInt(params.get("id"));
+    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
+    let insect = insects.find(i => i.id === id);
+    let currentUserId = localStorage.getItem("userId");
+
+    if (!insect) {
+      document.querySelector("main").innerHTML = "<p>作品が見つかりません</p>";
+    } else {
+      // 既存データをフォームに入れる
+      document.getElementById("name").value = insect.name;
+      document.getElementById("user").value = insect.user;
+      document.getElementById("description").value = insect.description || "";
+      document.getElementById("image").value = insect.image || "";
+
+      document.getElementById("editForm").addEventListener("submit", function(e){
+        e.preventDefault();
+        let inputKey = document.getElementById("updateKey").value;
+
+        // 更新キー必須チェック
+        if (inputKey !== insect.updateKey) {
+          alert("更新キーが正しくありません！");
+          return;
+        }
+
+        // 更新処理
+        insect.name = document.getElementById("name").value;
+        insect.user = document.getElementById("user").value;
+        insect.description = document.getElementById("description").value;
+        insect.image = document.getElementById("image").value;
+        insect.lastUpdate = new Date().toLocaleString();
+        insect.lastUpdater = currentUserId;
+
+        localStorage.setItem("insects", JSON.stringify(insects));
+        alert("作品を更新しました！");
+        location.href = "detail.html?id=" + insect.id;
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+/* ====== 全体共通 ====== */
+body {
+  font-family: "Hiragino Kaku Gothic ProN", sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+}
+
+/* ====== ヘッダー部分 ====== */
+header {
+  display: flex;                /* 横並びにする */
+  justify-content: space-between; /* 左右に分ける */
+  align-items: center;          /* 縦中央揃え */
+  background: #1bc700;
+  color: white;
+  padding: 10px;
+}
+
+.header-left {
+  display: flex;                /* ロゴとタイトルを横並び */
+  align-items: center;          /* 縦方向中央揃え */
+}
+
+header img.logo {
+  height: 60px;   /* ロゴサイズ */
+  width: auto;
+  margin-right: 10px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+header nav a {
+  margin: 0 10px;
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+header nav a:hover {
+  text-decoration: underline;
+}
+
+/* ====== メイン部分 ====== */
+main {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 0 10px;
+}
+
+h2 {
+  border-left: 5px solid #1bc700;
+  padding-left: 8px;
+  margin-top: 30px;
+}
+
+a {
+  color: #1bc700;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ====== テーブル共通 ====== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  border: 1px solid #666;
+  padding: 6px;
+  font-size: 14px;
+}
+
+th {
+  background: #d7f7dd;
+}
+
+td {
+  background: #fff;
+}
+
+/* ====== コメントテーブル専用 ====== */
+.comment-table tr:not(:has(td[colspan])) td {
+  background: #d7f7dd;  /* 上段の情報部分を黄緑 */
+}
+.comment-table td[colspan] {
+  background: #fff;      /* コメント本文は白 */
+}
