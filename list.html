@@ -15,13 +15,15 @@
     .delete-btn { background: #f55; color: white; border: none; padding: 4px 8px; cursor: pointer; }
     .search-box { margin: 1em 0; }
     .search-box input { width: 300px; padding: 6px; }
+    header { background: #0c0; color: #fff; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
+    header nav a { color: #fff; margin-left: 20px; text-decoration: none; font-weight: bold; }
+    header nav a:hover { text-decoration: underline; }
+    header img { height: 60px; }
   </style>
 </head>
 <body>
   <header>
-    <div class="header-left">
-      <a href="index.html"><img src="logo.png" alt="空想昆虫図鑑" style="height:100px;"></a>
-    </div>
+    <a href="index.html"><img src="logo.png" alt="空想昆虫ロゴ"></a>
     <nav>
       <a href="index.html">トップ</a>
       <a href="new.html">新規作成</a>
@@ -71,9 +73,9 @@
     let sortSelect = document.getElementById("sortSelect");
     let searchInput = document.getElementById("searchInput");
 
-    let currentUserId = (localStorage.getItem("userId") || "").trim();
+    let currentUserId = (localStorage.getItem("userId") || "").trim().toLowerCase();
 
-    // 管理人なら「全削除ボタン」を表示
+    // 管理人なら「全削除」ボタンを表示
     if (currentUserId === "kanrinin") {
       document.getElementById("adminControls").style.display = "block";
       document.getElementById("deleteAll").addEventListener("click", function(){
@@ -95,7 +97,7 @@
       return count;
     }
 
-    // 個別削除処理
+    // 個別削除
     function deleteInsect(id) {
       insects = insects.filter(i => i.id !== id);
       localStorage.setItem("insects", JSON.stringify(insects));
@@ -112,9 +114,7 @@
         case "newest": sorted.sort((a, b) => b.id - a.id); break;
         case "oldest": sorted.sort((a, b) => a.id - b.id); break;
         case "viewsDesc": sorted.sort((a, b) => (b.views || 0) - (a.views || 0)); break;
-        case "commentsDesc":
-          sorted.sort((a, b) => countCommentsWithReplies(b.comments) - countCommentsWithReplies(a.comments));
-          break;
+        case "commentsDesc": sorted.sort((a, b) => countCommentsWithReplies(b.comments) - countCommentsWithReplies(a.comments)); break;
       }
 
       // 検索フィルター
@@ -132,13 +132,13 @@
           });
         } else {
           sorted = sorted.filter(insect => {
-            let idStr = insect.id ? String(insect.id).toLowerCase() : "";
-            let userIdStr = insect.userId ? String(insect.userId).toLowerCase().trim() : "";
+            let idStr = (insect.id || "").toString().toLowerCase();
+            let userIdStr = (insect.userId || "").trim().toLowerCase();
             return (
-              (insect.description && insect.description.toLowerCase().includes(keyword)) ||
-              (insect.serial && String(insect.serial).includes(keyword)) ||
-              (insect.name && insect.name.toLowerCase().includes(keyword)) ||
-              (insect.user && insect.user.toLowerCase().includes(keyword)) ||
+              (insect.description || "").toLowerCase().includes(keyword) ||
+              (insect.serial || "").toString().includes(keyword) ||
+              (insect.name || "").toLowerCase().includes(keyword) ||
+              (insect.user || "").toLowerCase().includes(keyword) ||
               idStr.includes(keyword) ||
               userIdStr.includes(keyword)
             );
@@ -147,21 +147,36 @@
       }
 
       // 表描画
-      listContainer.innerHTML = sorted.map(insect => {
-        let userId = (insect.userId || "").trim();
+      listContainer.innerHTML = "";
+      sorted.forEach(insect => {
+        let userId = (insect.userId || "").trim().toLowerCase();
         let canDelete = (currentUserId === "kanrinin" || currentUserId === userId);
-        return `
-          <tr>
-            <td>${insect.serial}</td>
-            <td><a href="detail.html?id=${insect.id}">${insect.name}</a></td>
-            <td>${insect.user}</td>
-            <td>${insect.date || ""}</td>
-            <td>${countCommentsWithReplies(insect.comments)}</td>
-            <td>${insect.views || 0}</td>
-            <td>${canDelete ? `<button class="delete-btn" onclick="if(confirm('削除しますか？')) deleteInsect(${insect.id})">削除</button>` : ""}</td>
-          </tr>
+
+        let tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${insect.serial}</td>
+          <td><a href="detail.html?id=${insect.id}">${insect.name}</a></td>
+          <td>${insect.user}</td>
+          <td>${insect.date || ""}</td>
+          <td>${countCommentsWithReplies(insect.comments)}</td>
+          <td>${insect.views || 0}</td>
+          <td></td>
         `;
-      }).join("");
+
+        if (canDelete) {
+          let delBtn = document.createElement("button");
+          delBtn.textContent = "削除";
+          delBtn.className = "delete-btn";
+          delBtn.onclick = () => {
+            if (confirm("削除しますか？")) {
+              deleteInsect(insect.id);
+            }
+          };
+          tr.querySelector("td:last-child").appendChild(delBtn);
+        }
+
+        listContainer.appendChild(tr);
+      });
     }
 
     sortSelect.addEventListener("change", renderList);
