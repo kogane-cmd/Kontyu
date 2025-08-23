@@ -36,10 +36,10 @@
 
     <label for="sortSelect">並び替え：</label>
     <select id="sortSelect">
-      <option value="newest">最新順（登録日が新しい順）</option>
-      <option value="oldest">古い順（登録日が古い順）</option>
-      <option value="viewsDesc">アクセス数順（多い順）</option>
-      <option value="commentsDesc">コメント数順（多い順）</option>
+      <option value="newest">最新順</option>
+      <option value="oldest">古い順</option>
+      <option value="viewsDesc">アクセス数順</option>
+      <option value="commentsDesc">コメント数順</option>
     </select>
 
     <div class="search-box">
@@ -68,21 +68,27 @@
   </main>
 
   <script>
+    // -------------------------
+    // 共通：ユーザーIDの管理
+    // -------------------------
+    if (!localStorage.getItem("currentUserId")) {
+      localStorage.setItem("currentUserId", "guest");
+    }
+    let currentUserId = localStorage.getItem("currentUserId").trim().toLowerCase();
+
     let insects = JSON.parse(localStorage.getItem("insects") || "[]");
     let listContainer = document.getElementById("list");
     let sortSelect = document.getElementById("sortSelect");
     let searchInput = document.getElementById("searchInput");
 
-    let currentUserId = (localStorage.getItem("userId") || "").trim().toLowerCase();
-
-    // 管理人なら「全削除」ボタンを表示
+    // 管理人なら全削除ボタン表示
     if (currentUserId === "kanrinin") {
       document.getElementById("adminControls").style.display = "block";
       document.getElementById("deleteAll").addEventListener("click", function(){
         if (confirm("⚠ 本当に全作品を削除しますか？")) {
           localStorage.removeItem("insects");
-          alert("全作品を削除しました");
-          location.reload();
+          insects = [];
+          renderList();
         }
       });
     }
@@ -117,33 +123,20 @@
         case "commentsDesc": sorted.sort((a, b) => countCommentsWithReplies(b.comments) - countCommentsWithReplies(a.comments)); break;
       }
 
-      // 検索フィルター
+      // 検索
       if (keyword) {
-        let rangeMatch = keyword.match(/^(\d*)\s*~\s*(\d*)$/);
-        if (rangeMatch) {
-          let min = rangeMatch[1] ? parseInt(rangeMatch[1]) : null;
-          let max = rangeMatch[2] ? parseInt(rangeMatch[2]) : null;
-          sorted = sorted.filter(insect => {
-            let num = parseInt(insect.serial);
-            if (isNaN(num)) return false;
-            if (min !== null && num < min) return false;
-            if (max !== null && num > max) return false;
-            return true;
-          });
-        } else {
-          sorted = sorted.filter(insect => {
-            let idStr = (insect.id || "").toString().toLowerCase();
-            let userIdStr = (insect.userId || "").trim().toLowerCase();
-            return (
-              (insect.description || "").toLowerCase().includes(keyword) ||
-              (insect.serial || "").toString().includes(keyword) ||
-              (insect.name || "").toLowerCase().includes(keyword) ||
-              (insect.user || "").toLowerCase().includes(keyword) ||
-              idStr.includes(keyword) ||
-              userIdStr.includes(keyword)
-            );
-          });
-        }
+        sorted = sorted.filter(insect => {
+          let idStr = (insect.id || "").toString().toLowerCase();
+          let userIdStr = (insect.userId || "").trim().toLowerCase();
+          return (
+            (insect.description || "").toLowerCase().includes(keyword) ||
+            (insect.serial || "").toString().includes(keyword) ||
+            (insect.name || "").toLowerCase().includes(keyword) ||
+            (insect.user || "").toLowerCase().includes(keyword) ||
+            idStr.includes(keyword) ||
+            userIdStr.includes(keyword)
+          );
+        });
       }
 
       // 表描画
@@ -154,7 +147,7 @@
 
         let tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${insect.serial}</td>
+          <td>${insect.serial || ""}</td>
           <td><a href="detail.html?id=${insect.id}">${insect.name}</a></td>
           <td>${insect.user}</td>
           <td>${insect.date || ""}</td>
