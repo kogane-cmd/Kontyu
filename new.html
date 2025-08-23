@@ -30,15 +30,17 @@
   </main>
 
   <script>
-    // ユーザーID取得
-    let currentUserId = localStorage.getItem("userId");
+    // ===== ユーザーIDの取得 =====
+    let currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) {
       currentUserId = "u-" + Math.random().toString(36).substr(2,9);
-      localStorage.setItem("userId", currentUserId);
+      localStorage.setItem("currentUserId", currentUserId);
     }
 
+    // ===== フォーム送信イベント =====
     document.getElementById("newForm").addEventListener("submit", function(e){
-      e.preventDefault();
+      e.preventDefault();  // ページリロード防止
+
       let insects = JSON.parse(localStorage.getItem("insects") || "[]");
 
       // 管理人以外は5分制限
@@ -86,6 +88,7 @@
       reader.readAsDataURL(file);
     });
 
+    // ===== 保存処理 =====
     function saveInsect(imageData, insects){
       let insect = {
         id: Date.now(),
@@ -104,9 +107,9 @@
       };
       insects.push(insect);
       localStorage.setItem("insects", JSON.stringify(insects));
-      location.href="list.html";
+      // ✅ 登録後はリストページへ遷移
+      location.href = "list.html";
     }
-    
   </script>
 </body>
 </html>
