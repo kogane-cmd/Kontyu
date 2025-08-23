@@ -5,167 +5,148 @@
   <title>作品リスト</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    table { width: 100%; border-collapse: collapse; margin-top: 1em; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #cfc; }
-    td a { color: green; text-decoration: none; }
-    td a:hover { text-decoration: underline; }
-    .admin-controls { margin-top: 1em; text-align: right; }
-    .admin-controls button { background: red; color: white; border: none; padding: 6px 12px; cursor: pointer; }
-    .delete-btn { background: #f55; color: white; border: none; padding: 4px 8px; cursor: pointer; }
-    .search-box { margin: 1em 0; }
-    .search-box input { width: 300px; padding: 6px; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+    }
+    th {
+      background: #cfc;
+    }
+    .delete-btn {
+      background: red;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-left">
-      <a href="index.html"><img src="logo.png" alt="空想昆虫図鑑" style="height:100px;"></a>
-    </div>
-    <nav>
-      <a href="index.html">トップ</a>
-      <a href="new.html">新規作成</a>
-      <a href="list.html">リスト</a>
-    </nav>
-  </header>
+  <h1>作品リスト</h1>
 
-  <main>
-    <h2>作品リスト</h2>
-
-    <label for="sortSelect">並び替え：</label>
-    <select id="sortSelect">
-      <option value="newest">最新順（登録日が新しい順）</option>
-      <option value="oldest">古い順（登録日が古い順）</option>
-      <option value="viewsDesc">アクセス数順（多い順）</option>
-      <option value="commentsDesc">コメント数順（多い順）</option>
+  <div>
+    並び替え：
+    <select id="sortOption">
+      <option value="dateDesc">最新順（登録日が新しい順）</option>
+      <option value="dateAsc">古い順（登録日が古い順）</option>
     </select>
+  </div>
 
-    <div class="search-box">
-      <label for="searchInput">検索：</label>
-      <input type="text" id="searchInput" placeholder="説明 / No.(例:5~10) / 名称 / 作成者 / ID / userId で検索">
-    </div>
+  <div>
+    検索：
+    <input type="text" id="searchBox" placeholder="説明 / No. / 名称 / 作成者 / ID / userId で検索">
+  </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>No.</th>
-          <th>名称</th>
-          <th>作成者</th>
-          <th>登録日</th>
-          <th>コメント数</th>
-          <th>アクセス数</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="list"></tbody>
-    </table>
+  <div id="deleteAllContainer"></div>
 
-    <div class="admin-controls" id="adminControls" style="display:none;">
-      <button id="deleteAll">⚠ 全削除</button>
-    </div>
-  </main>
+  <table id="insectTable">
+    <thead>
+      <tr>
+        <th>No.</th>
+        <th>名称</th>
+        <th>作成者</th>
+        <th>登録日</th>
+        <th>コメント数</th>
+        <th>アクセス数</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
+    // 管理人ログインを仮設定（なければkanrininにする）
+    if (!localStorage.getItem("currentUserId")) {
+      localStorage.setItem("currentUserId", "kanrinin");
+    }
+    let currentUserId = localStorage.getItem("currentUserId") || "guest";
+
     let insects = JSON.parse(localStorage.getItem("insects") || "[]");
-    let listContainer = document.getElementById("list");
-    let sortSelect = document.getElementById("sortSelect");
-    let searchInput = document.getElementById("searchInput");
 
-    let currentUserId = localStorage.getItem("userId");
+    const tableBody = document.querySelector("#insectTable tbody");
+    const sortOption = document.getElementById("sortOption");
+    const searchBox = document.getElementById("searchBox");
 
-    // 管理人なら「全削除ボタン」を表示
-    if (currentUserId === "kanrinin") {
-      document.getElementById("adminControls").style.display = "block";
-      document.getElementById("deleteAll").addEventListener("click", function(){
-        if (confirm("⚠ 本当に全作品を削除しますか？")) {
-          localStorage.removeItem("insects");
-          alert("全作品を削除しました");
-          location.reload();
-        }
-      });
-    }
+    function renderTable() {
+      tableBody.innerHTML = "";
+      let data = [...insects];
 
-    // コメント + 返信の総数
-    function countCommentsWithReplies(comments) {
-      if (!comments) return 0;
-      let count = comments.length;
-      comments.forEach(c => {
-        count += countCommentsWithReplies(c.replies || []);
-      });
-      return count;
-    }
-
-    // 個別削除処理
-    function deleteInsect(id) {
-      insects = insects.filter(i => i.id !== id);
-      localStorage.setItem("insects", JSON.stringify(insects));
-      renderList();
-    }
-
-    function renderList() {
-      let sorted = [...insects];
-      let sortType = sortSelect.value;
-      let keyword = searchInput.value.trim().toLowerCase();
+      // 検索
+      let query = searchBox.value.trim().toLowerCase();
+      if (query) {
+        data = data.filter(insect =>
+          insect.name.toLowerCase().includes(query) ||
+          insect.creator.toLowerCase().includes(query) ||
+          insect.id.toString().includes(query) ||
+          insect.userId.toLowerCase().includes(query) ||
+          (insect.description && insect.description.toLowerCase().includes(query))
+        );
+      }
 
       // 並び替え
-      switch(sortType) {
-        case "newest": sorted.sort((a, b) => b.id - a.id); break;
-        case "oldest": sorted.sort((a, b) => a.id - b.id); break;
-        case "viewsDesc": sorted.sort((a, b) => (b.views || 0) - (a.views || 0)); break;
-        case "commentsDesc":
-          sorted.sort((a, b) => countCommentsWithReplies(b.comments) - countCommentsWithReplies(a.comments));
-          break;
+      if (sortOption.value === "dateDesc") {
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+      } else if (sortOption.value === "dateAsc") {
+        data.sort((a, b) => new Date(a.date) - new Date(b.date));
       }
 
-      // 検索フィルター
-      if (keyword) {
-        let rangeMatch = keyword.match(/^(\d*)\s*~\s*(\d*)$/);
-        if (rangeMatch) {
-          let min = rangeMatch[1] ? parseInt(rangeMatch[1]) : null;
-          let max = rangeMatch[2] ? parseInt(rangeMatch[2]) : null;
-          sorted = sorted.filter(insect => {
-            let num = parseInt(insect.serial);
-            if (isNaN(num)) return false;
-            if (min !== null && num < min) return false;
-            if (max !== null && num > max) return false;
-            return true;
-          });
-        } else {
-          sorted = sorted.filter(insect => {
-            let idStr = insect.id !== undefined && insect.id !== null ? String(insect.id).toLowerCase() : "";
-            let userIdStr = insect.userId !== undefined && insect.userId !== null ? String(insect.userId).toLowerCase() : "";
-            return (
-              (insect.description && insect.description.toLowerCase().includes(keyword)) ||
-              (insect.serial && String(insect.serial).includes(keyword)) ||
-              (insect.name && insect.name.toLowerCase().includes(keyword)) ||
-              (insect.user && insect.user.toLowerCase().includes(keyword)) ||
-              idStr.includes(keyword) ||
-              userIdStr.includes(keyword)   // ★ userId 追加！
-            );
-          });
-        }
-      }
-
-      // 表描画
-      listContainer.innerHTML = sorted.map(insect => {
-        let canDelete = (currentUserId === "kanrinin" || currentUserId === insect.userId);
-        return `
-          <tr>
-            <td>${insect.serial}</td>
-            <td><a href="detail.html?id=${insect.id}">${insect.name}</a></td>
-            <td>${insect.user}</td>
-            <td>${insect.date || ""}</td>
-            <td>${countCommentsWithReplies(insect.comments)}</td>
-            <td>${insect.views || 0}</td>
-            <td>${canDelete ? `<button class="delete-btn" onclick="if(confirm('削除しますか？')) deleteInsect(${insect.id})">削除</button>` : ""}</td>
-          </tr>
+      // 表示
+      data.forEach(insect => {
+        let tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${insect.id}</td>
+          <td><a href="detail.html?id=${insect.id}">${insect.name}</a></td>
+          <td>${insect.creator}</td>
+          <td>${insect.date}</td>
+          <td>${insect.comments ? insect.comments.length : 0}</td>
+          <td>${insect.views || 0}</td>
+          <td></td>
         `;
-      }).join("");
+
+        // 削除ボタン（管理人は全作品、自分は自分の作品）
+        if (currentUserId === "kanrinin" || insect.userId === currentUserId) {
+          let delBtn = document.createElement("button");
+          delBtn.textContent = "削除";
+          delBtn.className = "delete-btn";
+          delBtn.onclick = () => {
+            if (confirm("本当に削除しますか？")) {
+              insects = insects.filter(i => i.id !== insect.id);
+              localStorage.setItem("insects", JSON.stringify(insects));
+              renderTable();
+            }
+          };
+          tr.querySelector("td:last-child").appendChild(delBtn);
+        }
+
+        tableBody.appendChild(tr);
+      });
     }
 
-    sortSelect.addEventListener("change", renderList);
-    searchInput.addEventListener("input", renderList);
-    renderList();
+    // 全削除ボタン（管理人専用）
+    if (currentUserId === "kanrinin") {
+      let deleteAllBtn = document.createElement("button");
+      deleteAllBtn.textContent = "全削除";
+      deleteAllBtn.style.background = "darkred";
+      deleteAllBtn.style.color = "white";
+      deleteAllBtn.onclick = () => {
+        if (confirm("本当に全作品を削除しますか？")) {
+          localStorage.removeItem("insects");
+          insects = [];
+          renderTable();
+        }
+      };
+      document.getElementById("deleteAllContainer").appendChild(deleteAllBtn);
+    }
+
+    sortOption.onchange = renderTable;
+    searchBox.oninput = renderTable;
+
+    renderTable();
   </script>
 </body>
 </html>
