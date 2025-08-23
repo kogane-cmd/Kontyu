@@ -12,10 +12,16 @@
     td a:hover { text-decoration: underline; }
     .admin-controls { margin-top: 1em; text-align: right; }
     .admin-controls button { background: red; color: white; border: none; padding: 6px 12px; cursor: pointer; }
-    .delete-btn { background: #f55; color: white; border: none; padding: 4px 8px; cursor: pointer; }
+    .delete-btn, .edit-btn {
+      background: #555; color: white; border: none;
+      padding: 4px 8px; cursor: pointer; margin: 2px;
+    }
+    .delete-btn { background: #f55; }
+    .edit-btn { background: #28a745; }
     .search-box { margin: 1em 0; }
     .search-box input { width: 300px; padding: 6px; }
-    header { background: #0c0; color: #fff; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
+    header { background: #0c0; color: #fff; padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between; }
     header nav a { color: #fff; margin-left: 20px; text-decoration: none; font-weight: bold; }
     header nav a:hover { text-decoration: underline; }
     header img { height: 60px; }
@@ -44,7 +50,7 @@
 
     <div class="search-box">
       <label for="searchInput">検索：</label>
-      <input type="text" id="searchInput" placeholder="説明 / No.(例:5~10) / 名称 / 作成者 / ID / userId で検索">
+      <input type="text" id="searchInput" placeholder="説明 / No.(例:5~10) / 名称 / 作成者 / ID / userId">
     </div>
 
     <table>
@@ -68,9 +74,7 @@
   </main>
 
   <script>
-    // -------------------------
-    // 共通：ユーザーIDの管理
-    // -------------------------
+    // ユーザーIDの管理
     if (!localStorage.getItem("currentUserId")) {
       localStorage.setItem("currentUserId", "guest");
     }
@@ -81,7 +85,7 @@
     let sortSelect = document.getElementById("sortSelect");
     let searchInput = document.getElementById("searchInput");
 
-    // 管理人なら全削除ボタン表示
+    // 管理人なら全削除ボタンを表示
     if (currentUserId === "kanrinin") {
       document.getElementById("adminControls").style.display = "block";
       document.getElementById("deleteAll").addEventListener("click", function(){
@@ -93,7 +97,7 @@
       });
     }
 
-    // コメント + 返信の総数
+    // コメント数カウント（返信含む）
     function countCommentsWithReplies(comments) {
       if (!comments) return 0;
       let count = comments.length;
@@ -143,7 +147,7 @@
       listContainer.innerHTML = "";
       sorted.forEach(insect => {
         let userId = (insect.userId || "").trim().toLowerCase();
-        let canDelete = (currentUserId === "kanrinin" || currentUserId === userId);
+        let canEditOrDelete = (currentUserId === "kanrinin" || currentUserId === userId);
 
         let tr = document.createElement("tr");
         tr.innerHTML = `
@@ -156,7 +160,19 @@
           <td></td>
         `;
 
-        if (canDelete) {
+        if (canEditOrDelete) {
+          let td = tr.querySelector("td:last-child");
+
+          // 編集ボタン
+          let editBtn = document.createElement("button");
+          editBtn.textContent = "編集";
+          editBtn.className = "edit-btn";
+          editBtn.onclick = () => {
+            location.href = `edit.html?id=${insect.id}`;
+          };
+          td.appendChild(editBtn);
+
+          // 削除ボタン
           let delBtn = document.createElement("button");
           delBtn.textContent = "削除";
           delBtn.className = "delete-btn";
@@ -165,7 +181,7 @@
               deleteInsect(insect.id);
             }
           };
-          tr.querySelector("td:last-child").appendChild(delBtn);
+          td.appendChild(delBtn);
         }
 
         listContainer.appendChild(tr);
