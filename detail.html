@@ -69,11 +69,22 @@
       if (insect.likes === undefined) insect.likes = 0;
       if (!insect.likedUsers) insect.likedUsers = [];
 
+      // ⭐ アクセス数を10分ごとに1回だけ増加
+      let lastViewKey = `lastViewTime_${insect.id}_${currentUserId}`;
+      let lastViewTime = localStorage.getItem(lastViewKey);
+      let now = Date.now();
+
+      if (!lastViewTime || now - lastViewTime > 10 * 60 * 1000) {
+        insect.views = (insect.views || 0) + 1;
+        localStorage.setItem("insects", JSON.stringify(insects));
+        localStorage.setItem(lastViewKey, now);
+      }
+
       document.getElementById("insectName").textContent = insect.name;
       document.getElementById("insectDescription").textContent = insect.description;
       document.getElementById("insectAuthor").textContent = insect.user;
       document.getElementById("insectUserId").textContent = insect.userId || "不明";
-      document.getElementById("insectViews").textContent = insect.views || 0;
+      document.getElementById("insectViews").textContent = insect.views;
       document.getElementById("insectLikes").textContent = insect.likes;
 
       if (insect.image) {
