@@ -2,151 +2,59 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>作品リスト</title>
+  <title>作品リスト - 空想昆虫</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
-    }
-    th {
-      background: #cfc;
-    }
-    .delete-btn {
-      background: red;
-      color: white;
-      border: none;
-      padding: 4px 8px;
-      cursor: pointer;
-    }
-  </style>
 </head>
 <body>
-  <h1>作品リスト</h1>
+  <header>
+    <img src="logo.png" alt="空想昆虫ロゴ" class="logo">
+    <nav>
+      <a href="index.html">トップ</a>
+      <a href="new.html">新規作成</a>
+      <a href="list.html">リスト</a>
+    </nav>
+  </header>
 
-  <div>
-    並び替え：
-    <select id="sortOption">
-      <option value="dateDesc">最新順（登録日が新しい順）</option>
-      <option value="dateAsc">古い順（登録日が古い順）</option>
-    </select>
-  </div>
+  <main>
+    <h1>作品リスト</h1>
 
-  <div>
-    検索：
-    <input type="text" id="searchBox" placeholder="説明 / No. / 名称 / 作成者 / ID / userId で検索">
-  </div>
+    <!-- 並び替え・検索 -->
+    <div class="controls">
+      <label>並び替え：
+        <select id="sortSelect">
+          <option value="newest">最新順（登録日が新しい順）</option>
+          <option value="oldest">古い順</option>
+          <option value="name">名称順</option>
+        </select>
+      </label>
 
-  <div id="deleteAllContainer"></div>
+      <label>検索：
+        <input type="text" id="searchInput" placeholder="名称 / 作成者 / ID で検索">
+      </label>
+    </div>
 
-  <table id="insectTable">
-    <thead>
-      <tr>
-        <th>No.</th>
-        <th>名称</th>
-        <th>作成者</th>
-        <th>登録日</th>
-        <th>コメント数</th>
-        <th>アクセス数</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <!-- 全削除ボタン -->
+    <button id="deleteAllBtn" class="danger">全削除</button>
 
-  <script>
-    // 管理人ログインを仮設定（なければkanrininにする）
-    if (!localStorage.getItem("currentUserId")) {
-      localStorage.setItem("currentUserId", "kanrinin");
-    }
-    let currentUserId = localStorage.getItem("currentUserId") || "guest";
+    <!-- 表 -->
+    <table id="insectTable">
+      <thead>
+        <tr>
+          <th>No.</th>
+          <th>名称</th>
+          <th>作成者</th>
+          <th>登録日</th>
+          <th>コメント数</th>
+          <th>アクセス数</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- JavaScriptで表示 -->
+      </tbody>
+    </table>
+  </main>
 
-    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
-
-    const tableBody = document.querySelector("#insectTable tbody");
-    const sortOption = document.getElementById("sortOption");
-    const searchBox = document.getElementById("searchBox");
-
-    function renderTable() {
-      tableBody.innerHTML = "";
-      let data = [...insects];
-
-      // 検索
-      let query = searchBox.value.trim().toLowerCase();
-      if (query) {
-        data = data.filter(insect =>
-          insect.name.toLowerCase().includes(query) ||
-          insect.creator.toLowerCase().includes(query) ||
-          insect.id.toString().includes(query) ||
-          insect.userId.toLowerCase().includes(query) ||
-          (insect.description && insect.description.toLowerCase().includes(query))
-        );
-      }
-
-      // 並び替え
-      if (sortOption.value === "dateDesc") {
-        data.sort((a, b) => new Date(b.date) - new Date(a.date));
-      } else if (sortOption.value === "dateAsc") {
-        data.sort((a, b) => new Date(a.date) - new Date(b.date));
-      }
-
-      // 表示
-      data.forEach(insect => {
-        let tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${insect.id}</td>
-          <td><a href="detail.html?id=${insect.id}">${insect.name}</a></td>
-          <td>${insect.creator}</td>
-          <td>${insect.date}</td>
-          <td>${insect.comments ? insect.comments.length : 0}</td>
-          <td>${insect.views || 0}</td>
-          <td></td>
-        `;
-
-        // 削除ボタン（管理人は全作品、自分は自分の作品）
-        if (currentUserId === "kanrinin" || insect.userId === currentUserId) {
-          let delBtn = document.createElement("button");
-          delBtn.textContent = "削除";
-          delBtn.className = "delete-btn";
-          delBtn.onclick = () => {
-            if (confirm("本当に削除しますか？")) {
-              insects = insects.filter(i => i.id !== insect.id);
-              localStorage.setItem("insects", JSON.stringify(insects));
-              renderTable();
-            }
-          };
-          tr.querySelector("td:last-child").appendChild(delBtn);
-        }
-
-        tableBody.appendChild(tr);
-      });
-    }
-
-    // 全削除ボタン（管理人専用）
-    if (currentUserId === "kanrinin") {
-      let deleteAllBtn = document.createElement("button");
-      deleteAllBtn.textContent = "全削除";
-      deleteAllBtn.style.background = "darkred";
-      deleteAllBtn.style.color = "white";
-      deleteAllBtn.onclick = () => {
-        if (confirm("本当に全作品を削除しますか？")) {
-          localStorage.removeItem("insects");
-          insects = [];
-          renderTable();
-        }
-      };
-      document.getElementById("deleteAllContainer").appendChild(deleteAllBtn);
-    }
-
-    sortOption.onchange = renderTable;
-    searchBox.oninput = renderTable;
-
-    renderTable();
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
