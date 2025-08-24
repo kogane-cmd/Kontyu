@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>編集</title>
+  <title>作品編集</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,11 +14,14 @@
       <a href="list.html">リスト</a>
     </nav>
   </header>
+
   <main>
     <h2>作品編集</h2>
     <form id="editForm">
       <p>名称: <input type="text" id="name" required></p>
       <p>作成者: <input type="text" id="author" required></p>
+      <p>画像URL: <input type="text" id="image"></p>
+      <p>新しい更新キー: <input type="password" id="newUpdateKey"></p>
       <button type="submit">更新</button>
     </form>
   </main>
@@ -28,28 +31,42 @@
     let id = Number(params.get("id"));
     let insects = JSON.parse(localStorage.getItem("insects") || "[]");
     let insect = insects.find(i => i.id === id);
-    let currentUserId = (localStorage.getItem("currentUserId") || "").trim().toLowerCase();
 
     if (!insect) {
       alert("データがありません");
       location.href = "list.html";
     }
 
+    // 既存の値をフォームにセット
     document.getElementById("name").value = insect.name;
     document.getElementById("author").value = insect.user;
+    document.getElementById("image").value = insect.image || "";
 
     document.getElementById("editForm").addEventListener("submit", function(e){
       e.preventDefault();
-      // 作成者または管理人だけ更新可能
-      if (!(currentUserId === "kanrinin" || currentUserId === (insect.userId || "").trim().toLowerCase())) {
-        alert("更新権限がありません");
+
+      // 更新キーを確認
+      let inputKey = prompt("この作品の更新キーを入力してください:");
+      if (inputKey !== insect.updateKey) {
+        alert("更新キーが違います！");
         return;
       }
 
+      // 値を更新
       insect.name = document.getElementById("name").value;
       insect.user = document.getElementById("author").value;
-      // userId はそのまま保持
+      insect.image = document.getElementById("image").value;
 
+      // 更新キーの再設定（空なら前のまま）
+      let newUpdateKey = document.getElementById("newUpdateKey").value;
+      if (newUpdateKey) {
+        insect.updateKey = newUpdateKey;
+      }
+
+      // 最終更新日を保存
+      insect.lastUpdated = new Date().toLocaleString();
+
+      // 保存
       localStorage.setItem("insects", JSON.stringify(insects));
       alert("更新しました！");
       location.href = "list.html";
