@@ -4,105 +4,88 @@
   <meta charset="UTF-8">
   <title>新規作成</title>
   <link rel="stylesheet" href="style.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    label { display: block; margin-top: 10px; }
+    input, textarea { width: 100%; padding: 6px; margin-top: 4px; }
+    button { margin-top: 15px; padding: 8px 16px; background: green; color: white; border: none; cursor: pointer; }
+    button:hover { background: darkgreen; }
+  </style>
 </head>
 <body>
-  <header>
-    <a href="index.html"><img src="logo.png" alt="ロゴ" style="height:60px;"></a>
-    <nav>
-      <a href="index.html">トップ</a>
-      <a href="new.html">新規作成</a>
-      <a href="list.html">リスト</a>
-    </nav>
-  </header>
+  <h1>作品を新規登録</h1>
 
-  <main>
-    <h2>新規作品登録</h2>
-    <form id="newForm">
-      <p>名称: <input type="text" id="name" required></p>
-      <p>作成者: <input type="text" id="author" required></p>
-      <p>画像ファイル: <input type="file" id="imageFile" accept="image/*"></p>
-      <p>説明: <textarea id="description" rows="4" cols="40" placeholder="作品の説明を入力"></textarea></p>
-      <p>更新キー: <input type="password" id="updateKey" required></p>
-      <button type="submit">登録</button>
-    </form>
-  </main>
+  <form id="newForm">
+    <label>名称:
+      <input type="text" id="name" required>
+    </label>
 
-  <script>
-    // 画像を自動リサイズしてBase64で返す（localStorage節約）
-    function resizeImage(file, callback, opts = {}) {
-      const maxW = opts.maxWidth || 1000;     // 最大幅
-      const maxH = opts.maxHeight || 1000;    // 最大高さ
-      const quality = opts.quality || 0.8;    // JPEG圧縮率(0~1)
+    <label>作成者:
+      <input type="text" id="user" required>
+    </label>
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          let w = img.width, h = img.height;
-          // 縦横比を保って最大サイズに収める
-          if (w > maxW || h > maxH) {
-            const scale = Math.min(maxW / w, maxH / h);
-            w = Math.round(w * scale);
-            h = Math.round(h * scale);
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, w, h);
-          // 常にJPEGに変換（HEIC対策）
-          const dataUrl = canvas.toDataURL("image/jpeg", quality);
-          callback(dataUrl);
-        };
-        img.onerror = () => callback(""); // 読み込み失敗時は空
-        img.src = e.target.result;
-      };
-      reader.onerror = () => callback("");
-      reader.readAsDataURL(file);
-    }
+    <label>説明:
+      <textarea id="description"></textarea>
+    </label>
 
-    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
-    let currentUserId = localStorage.getItem("currentUserId") || "guest";
+    <label>画像URL（仮対応: ファイルは後でStorageに）:
+      <input type="text" id="image">
+    </label>
 
-    document.getElementById("newForm").addEventListener("submit", function(e){
+    <button type="submit">登録</button>
+  </form>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Firebase設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
+      authDomain: "kontyu-project.firebaseapp.com",
+      projectId: "kontyu-project",
+      storageBucket: "kontyu-project.appspot.com",
+      messagingSenderId: "1029388457127",
+      appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
+    };
+
+    // 初期化
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // フォーム送信処理
+    document.getElementById("newForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const name = document.getElementById("name").value.trim();
-      const author = document.getElementById("author").value.trim();
-      const description = document.getElementById("description").value;
-      const updateKey = document.getElementById("updateKey").value;
-      const fileInput = document.getElementById("imageFile");
+      const user = document.getElementById("user").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const image = document.getElementById("image").value.trim();
 
-      const save = (imageData) => {
-        const record = {
-          id: Date.now(),
-          serial: insects.length + 1,
+      if (!name || !user) {
+        alert("名称と作成者は必須です");
+        return;
+      }
+
+      try {
+        await addDoc(collection(db, "insects"), {
           name,
-          user: author,
-          image: imageData || "",    // Base64（空でもOK）
+          user,
           description,
-          userId: currentUserId,
-          updateKey,
-          date: new Date().toLocaleString(),
-          lastUpdated: null,
+          image,
+          views: 0,
           comments: [],
-          views: 0
-        };
-        try {
-          insects.push(record);
-          localStorage.setItem("insects", JSON.stringify(insects));
-          alert("登録しました！");
-          location.href = "list.html";
-        } catch (err) {
-          alert("保存に失敗しました。画像サイズが大きすぎる可能性があります。");
-        }
-      };
+          date: new Date().toLocaleDateString(),
+          timestamp: Date.now(),
+          createdAt: serverTimestamp()
+        });
 
-      if (fileInput.files && fileInput.files.length > 0) {
-        resizeImage(fileInput.files[0], (dataUrl) => save(dataUrl), { maxWidth: 1000, maxHeight: 1000, quality: 0.8 });
-      } else {
-        save(""); // 画像なし
+        alert("作品を登録しました！");
+        window.location.href = "list.html";
+      } catch (error) {
+        console.error("エラー:", error);
+        alert("登録に失敗しました");
       }
     });
   </script>
