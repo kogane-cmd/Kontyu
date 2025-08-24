@@ -20,7 +20,10 @@
     <form id="editForm">
       <p>名称: <input type="text" id="name" required></p>
       <p>作成者: <input type="text" id="author" required></p>
-      <p>画像URL: <input type="text" id="image"></p>
+      <p>現在の画像:</p>
+      <img id="currentImage" src="" alt="現在の画像" style="max-width:200px; display:block; margin-bottom:10px;">
+      <p>新しい画像ファイル: <input type="file" id="imageFile" accept="image/*"></p>
+      <p>説明: <textarea id="description" rows="4" cols="40"></textarea></p>
       <p>更新キー: <input type="password" id="updateKeyInput" required></p>
       <p>新しい更新キー（変更したい場合のみ）: <input type="password" id="newUpdateKey"></p>
       <button type="submit">更新</button>
@@ -38,15 +41,16 @@
       location.href = "list.html";
     }
 
-    // 既存データをフォームに反映
+    // 既存の値をフォームにセット
     document.getElementById("name").value = insect.name;
     document.getElementById("author").value = insect.user;
-    document.getElementById("image").value = insect.image || "";
+    document.getElementById("description").value = insect.description || "";
+    document.getElementById("currentImage").src = insect.image || "";
 
     document.getElementById("editForm").addEventListener("submit", function(e){
       e.preventDefault();
 
-      // 入力された更新キーをチェック
+      // 更新キーを確認
       let inputKey = document.getElementById("updateKeyInput").value;
       if (inputKey !== insect.updateKey) {
         alert("更新キーが違います！");
@@ -56,21 +60,36 @@
       // 値を更新
       insect.name = document.getElementById("name").value;
       insect.user = document.getElementById("author").value;
-      insect.image = document.getElementById("image").value;
+      insect.description = document.getElementById("description").value;
 
-      // 更新キーを変更する場合
-      let newUpdateKey = document.getElementById("newUpdateKey").value;
-      if (newUpdateKey) {
-        insect.updateKey = newUpdateKey;
+      // 画像を変更した場合
+      let fileInput = document.getElementById("imageFile");
+      if (fileInput.files.length > 0) {
+        let reader = new FileReader();
+        reader.onload = function(event) {
+          insect.image = event.target.result; // Base64に置き換え
+          finalizeUpdate();
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        finalizeUpdate();
       }
 
-      // 最終更新日
-      insect.lastUpdated = new Date().toLocaleString();
+      function finalizeUpdate() {
+        // 更新キーを変更する場合
+        let newUpdateKey = document.getElementById("newUpdateKey").value;
+        if (newUpdateKey) {
+          insect.updateKey = newUpdateKey;
+        }
 
-      // 保存
-      localStorage.setItem("insects", JSON.stringify(insects));
-      alert("更新しました！");
-      location.href = "list.html";
+        // 最終更新日
+        insect.lastUpdated = new Date().toLocaleString();
+
+        // 保存
+        localStorage.setItem("insects", JSON.stringify(insects));
+        alert("更新しました！");
+        location.href = "list.html";
+      }
     });
   </script>
 </body>
