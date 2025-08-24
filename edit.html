@@ -21,7 +21,8 @@
       <p>名称: <input type="text" id="name" required></p>
       <p>作成者: <input type="text" id="author" required></p>
       <p>画像URL: <input type="text" id="image"></p>
-      <p>新しい更新キー: <input type="password" id="newUpdateKey"></p>
+      <p>更新キー: <input type="password" id="updateKeyInput" required></p>
+      <p>新しい更新キー（変更したい場合のみ）: <input type="password" id="newUpdateKey"></p>
       <button type="submit">更新</button>
     </form>
   </main>
@@ -37,7 +38,7 @@
       location.href = "list.html";
     }
 
-    // 既存の値をフォームにセット
+    // 既存データをフォームに反映
     document.getElementById("name").value = insect.name;
     document.getElementById("author").value = insect.user;
     document.getElementById("image").value = insect.image || "";
@@ -45,8 +46,8 @@
     document.getElementById("editForm").addEventListener("submit", function(e){
       e.preventDefault();
 
-      // 更新キーを確認
-      let inputKey = prompt("この作品の更新キーを入力してください:");
+      // 入力された更新キーをチェック
+      let inputKey = document.getElementById("updateKeyInput").value;
       if (inputKey !== insect.updateKey) {
         alert("更新キーが違います！");
         return;
@@ -57,13 +58,13 @@
       insect.user = document.getElementById("author").value;
       insect.image = document.getElementById("image").value;
 
-      // 更新キーの再設定（空なら前のまま）
+      // 更新キーを変更する場合
       let newUpdateKey = document.getElementById("newUpdateKey").value;
       if (newUpdateKey) {
         insect.updateKey = newUpdateKey;
       }
 
-      // 最終更新日を保存
+      // 最終更新日
       insect.lastUpdated = new Date().toLocaleString();
 
       // 保存
