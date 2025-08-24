@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>作品編集</title>
   <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
   <header>
@@ -20,28 +21,65 @@
     <form id="editForm">
       <p>名称: <input type="text" id="name" required></p>
       <p>作成者: <input type="text" id="author" required></p>
+
       <p>現在の画像:</p>
-      <img id="currentImage" src="" alt="現在の画像" style="max-width:200px; display:block; margin-bottom:10px;">
-      <p>新しい画像ファイル: <input type="file" id="imageFile" accept="image/*"></p>
+      <img id="currentImage" src="" alt="現在の画像" style="max-width:220px; display:block; margin-bottom:10px;">
+
+      <p>新しい画像ファイル（変更する場合のみ）:
+        <input type="file" id="imageFile" accept="image/*">
+      </p>
+
       <p>説明: <textarea id="description" rows="4" cols="40"></textarea></p>
-      <p>更新キー: <input type="password" id="updateKeyInput" required></p>
+
+      <p>更新キー（認証）: <input type="password" id="updateKeyInput" required></p>
       <p>新しい更新キー（変更したい場合のみ）: <input type="password" id="newUpdateKey"></p>
+
       <button type="submit">更新</button>
     </form>
   </main>
 
   <script>
-    let params = new URLSearchParams(location.search);
-    let id = Number(params.get("id"));
+    function resizeImage(file, callback, opts = {}) {
+      const maxW = opts.maxWidth || 1000;
+      const maxH = opts.maxHeight || 1000;
+      const quality = opts.quality || 0.8;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > maxW || h > maxH) {
+            const scale = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          callback(dataUrl);
+        };
+        img.onerror = () => callback("");
+        img.src = e.target.result;
+      };
+      reader.onerror = () => callback("");
+      reader.readAsDataURL(file);
+    }
+
+    const params = new URLSearchParams(location.search);
+    const id = Number(params.get("id"));
     let insects = JSON.parse(localStorage.getItem("insects") || "[]");
-    let insect = insects.find(i => i.id === id);
+    const insect = insects.find(i => i.id === id);
 
     if (!insect) {
       alert("データがありません");
       location.href = "list.html";
     }
 
-    // 既存の値をフォームにセット
+    // 既存データをフォームに反映
     document.getElementById("name").value = insect.name;
     document.getElementById("author").value = insect.user;
     document.getElementById("description").value = insect.description || "";
@@ -50,45 +88,43 @@
     document.getElementById("editForm").addEventListener("submit", function(e){
       e.preventDefault();
 
-      // 更新キーを確認
-      let inputKey = document.getElementById("updateKeyInput").value;
+      // 認証：作品ごとの更新キー
+      const inputKey = document.getElementById("updateKeyInput").value;
       if (inputKey !== insect.updateKey) {
         alert("更新キーが違います！");
         return;
       }
 
-      // 値を更新
-      insect.name = document.getElementById("name").value;
-      insect.user = document.getElementById("author").value;
+      // 共通フィールド更新
+      insect.name = document.getElementById("name").value.trim();
+      insect.user = document.getElementById("author").value.trim();
       insect.description = document.getElementById("description").value;
 
-      // 画像を変更した場合
-      let fileInput = document.getElementById("imageFile");
-      if (fileInput.files.length > 0) {
-        let reader = new FileReader();
-        reader.onload = function(event) {
-          insect.image = event.target.result; // Base64に置き換え
-          finalizeUpdate();
-        };
-        reader.readAsDataURL(fileInput.files[0]);
-      } else {
-        finalizeUpdate();
-      }
-
-      function finalizeUpdate() {
-        // 更新キーを変更する場合
-        let newUpdateKey = document.getElementById("newUpdateKey").value;
-        if (newUpdateKey) {
-          insect.updateKey = newUpdateKey;
+      // 新しい画像が選ばれていればリサイズして保存、なければそのまま
+      const fileInput = document.getElementById("imageFile");
+      const finalize = () => {
+        const newKey = document.getElementById("newUpdateKey").value;
+        if (newKey) {
+          insect.updateKey = newKey;
         }
-
-        // 最終更新日
         insect.lastUpdated = new Date().toLocaleString();
 
-        // 保存
-        localStorage.setItem("insects", JSON.stringify(insects));
-        alert("更新しました！");
-        location.href = "list.html";
+        try {
+          localStorage.setItem("insects", JSON.stringify(insects));
+          alert("更新しました！");
+          location.href = "list.html";
+        } catch (err) {
+          alert("保存に失敗しました。画像サイズが大きすぎる可能性があります。");
+        }
+      };
+
+      if (fileInput.files && fileInput.files.length > 0) {
+        resizeImage(fileInput.files[0], (dataUrl) => {
+          if (dataUrl) insect.image = dataUrl; // 新画像に置き換え
+          finalize();
+        }, { maxWidth: 1000, maxHeight: 1000, quality: 0.8 });
+      } else {
+        finalize();
       }
     });
   </script>
