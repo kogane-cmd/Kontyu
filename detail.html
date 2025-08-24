@@ -4,244 +4,78 @@
   <meta charset="UTF-8">
   <title>作品詳細</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    h1 { color: green; }
+    .info { margin-top: 10px; }
+    img { max-width: 400px; margin-top: 10px; }
+    .back { margin-top: 20px; display: inline-block; }
+  </style>
 </head>
 <body>
-  <header>
-    <div class="header-left">
-      <a href="index.html"><img src="logo.png" alt="空想昆虫図鑑" style="height:100px;"></a>
-    </div>
-    <nav>
-      <a href="index.html">トップ</a>
-      <a href="new.html">新規作成</a>
-      <a href="list.html">リスト</a>
-      <a href="comments.html">コメント一覧</a>
-    </nav>
-  </header>
+  <h1 id="title">作品詳細</h1>
+  <div id="info" class="info"></div>
+  <img id="image" alt="作品画像">
+  <p><strong>説明:</strong></p>
+  <p id="description"></p>
+  <a href="list.html" class="back">← リストに戻る</a>
 
-  <main>
-    <h2 id="insectName"></h2>
-    <p id="insectDescription"></p>
-    <p>作成者: <span id="insectAuthor"></span></p>
-    <p>作者ID: <span id="insectUserId"></span></p>
-    <p>アクセス数: <span id="insectViews"></span></p>
-    <p><img id="insectImage" alt="昆虫画像" style="max-width:400px;"></p>
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    <h3>作品への高評価</h3>
-    <p>
-      👍 <span id="insectLikes">0</span>
-      <button id="likeBtn">この作品を高評価する</button>
-    </p>
+    // Firebase設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
+      authDomain: "kontyu-project.firebaseapp.com",
+      projectId: "kontyu-project",
+      storageBucket: "kontyu-project.appspot.com",
+      messagingSenderId: "1029388457127",
+      appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
+    };
 
-    <h3>コメント</h3>
-    <ul id="commentsList"></ul>
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    <h3>コメントを投稿する</h3>
-    <p>名前: <input type="text" id="commentUser" placeholder="名前を入力（省略可）"></p>
-    <textarea id="commentText" rows="3" cols="50" placeholder="コメントを入力してください"></textarea><br>
-    <button id="postComment">投稿</button>
-  </main>
+    // URLパラメータからid取得
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
 
-  <script>
-    // ===== 仮ログイン（管理人IDをセット） =====
-    localStorage.setItem("currentUserId", "kanrinin");
-
-    // ===== ユーザー情報 =====
-    let currentUserId = localStorage.getItem("currentUserId") || "guest";
-
-    // ===== 荒らしかどうかチェック =====
-    let blockedUsers = JSON.parse(localStorage.getItem("blockedUsers") || "[]");
-    function isBlocked(userId) {
-      if (userId === "kanrinin") return false; // 管理人は除外
-      return blockedUsers.includes(userId);
-    }
-
-    // ===== URLから作品IDを取得 =====
-    const params = new URLSearchParams(location.search);
-    const insectId = params.get("id");
-
-    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
-    let insect = insects.find(i => String(i.id) === insectId);
-
-    if (!insect) {
-      document.body.innerHTML = "<p>作品が見つかりません</p>";
-    } else {
-      // プロパティ初期化
-      if (insect.likes === undefined) insect.likes = 0;
-      if (!insect.likedUsers) insect.likedUsers = [];
-
-      // ⭐ アクセス数を10分ごとに1回だけ増加
-      let lastViewKey = `lastViewTime_${insect.id}_${currentUserId}`;
-      let lastViewTime = localStorage.getItem(lastViewKey);
-      let now = Date.now();
-
-      if (!lastViewTime || now - lastViewTime > 10 * 60 * 1000) {
-        insect.views = (insect.views || 0) + 1;
-        localStorage.setItem("insects", JSON.stringify(insects));
-        localStorage.setItem(lastViewKey, now);
+    async function loadDetail() {
+      if (!id) {
+        document.getElementById("info").textContent = "作品が見つかりません。";
+        return;
       }
 
-      document.getElementById("insectName").textContent = insect.name;
-      document.getElementById("insectDescription").textContent = insect.description;
-      document.getElementById("insectAuthor").textContent = insect.user;
-      document.getElementById("insectUserId").textContent = insect.userId || "不明";
-      document.getElementById("insectViews").textContent = insect.views;
-      document.getElementById("insectLikes").textContent = insect.likes;
+      const ref = doc(db, "insects", id);
+      const snap = await getDoc(ref);
 
-      if (insect.image) {
-        document.getElementById("insectImage").src = insect.image;
-      } else {
-        document.getElementById("insectImage").style.display = "none";
+      if (!snap.exists()) {
+        document.getElementById("info").textContent = "作品が見つかりません。";
+        return;
       }
 
-      updateLikeButton();
-      renderComments();
-    }
+      const data = snap.data();
 
-    // ===== 作品高評価処理（トグル式） =====
-    function updateLikeButton() {
-      let btn = document.getElementById("likeBtn");
-      if (insect.likedUsers.includes(currentUserId)) {
-        btn.textContent = "高評価を取り消す";
-      } else {
-        btn.textContent = "この作品を高評価する";
-      }
-    }
-
-    document.getElementById("likeBtn").addEventListener("click", () => {
-      if (!insect.likedUsers) insect.likedUsers = [];
-
-      if (insect.likedUsers.includes(currentUserId)) {
-        // 取り消し
-        insect.likes = Math.max(0, insect.likes - 1);
-        insect.likedUsers = insect.likedUsers.filter(u => u !== currentUserId);
-      } else {
-        // 高評価
-        insect.likes++;
-        insect.likedUsers.push(currentUserId);
-      }
-
-      localStorage.setItem("insects", JSON.stringify(insects));
-      document.getElementById("insectLikes").textContent = insect.likes;
-      updateLikeButton();
-    });
-
-    // ===== コメント描画（返信＋高評価） =====
-    function renderComments() {
-      let ul = document.getElementById("commentsList");
-      ul.innerHTML = "";
-      (insect.comments || []).forEach(c => {
-        ul.appendChild(renderCommentItem(c));
-      });
-    }
-
-    function renderCommentItem(c) {
-      if (c.likes === undefined) c.likes = 0;
-      if (!c.likedUsers) c.likedUsers = [];
-
-      let li = document.createElement("li");
-      li.innerHTML = `
-        <b>${c.user}</b> (${c.userId || "不明"}) : ${c.text}
-        <small>[${c.date}] 👍<span class="likeCount">${c.likes}</span></small>
-        <button class="likeBtn">👍</button>
-        <button class="replyBtn">返信</button>
-        <div class="replyBox" style="display:none; margin-left:20px;">
-          <input type="text" class="replyUser" placeholder="名前（省略可）"><br>
-          <textarea class="replyText" rows="2" cols="40" placeholder="返信を入力してください"></textarea><br>
-          <button class="sendReply">送信</button>
-        </div>
-        <ul class="replies"></ul>
+      document.getElementById("title").textContent = data.name || "名称なし";
+      document.getElementById("info").innerHTML = `
+        <p><strong>作成者:</strong> ${data.user || "匿名"}</p>
+        <p><strong>登録日:</strong> ${data.date || ""}</p>
+        <p><strong>アクセス数:</strong> ${data.views || 0}</p>
       `;
+      document.getElementById("description").textContent = data.description || "説明なし";
+      if (data.image) {
+        document.getElementById("image").src = data.image;
+      } else {
+        document.getElementById("image").style.display = "none";
+      }
 
-      // コメント高評価処理
-      li.querySelector(".likeBtn").addEventListener("click", () => {
-        if (c.likedUsers.includes(currentUserId)) {
-          // 取り消し
-          c.likes = Math.max(0, c.likes - 1);
-          c.likedUsers = c.likedUsers.filter(u => u !== currentUserId);
-        } else {
-          // 高評価
-          c.likes++;
-          c.likedUsers.push(currentUserId);
-        }
-        localStorage.setItem("insects", JSON.stringify(insects));
-        renderComments();
-      });
-
-      // 返信ボックス表示切替
-      li.querySelector(".replyBtn").addEventListener("click", () => {
-        let box = li.querySelector(".replyBox");
-        box.style.display = (box.style.display === "none") ? "block" : "none";
-      });
-
-      // 返信送信
-      li.querySelector(".sendReply").addEventListener("click", () => {
-        let name = li.querySelector(".replyUser").value.trim() || "名無し";
-        let text = li.querySelector(".replyText").value.trim();
-        if (!text) {
-          alert("返信を入力してください");
-          return;
-        }
-        let reply = {
-          user: name,
-          userId: currentUserId,
-          text: text,
-          date: new Date().toLocaleString(),
-          likes: 0,
-          likedUsers: [],
-          replies: []
-        };
-        if (!c.replies) c.replies = [];
-        c.replies.push(reply);
-        localStorage.setItem("insects", JSON.stringify(insects));
-        renderComments();
-      });
-
-      // 再帰的に返信を描画
-      let repliesUl = li.querySelector(".replies");
-      (c.replies || []).forEach(r => {
-        repliesUl.appendChild(renderCommentItem(r));
-      });
-
-      return li;
+      // アクセス数を+1
+      await updateDoc(ref, { views: increment(1) });
     }
 
-    // ===== コメント投稿処理 =====
-    document.getElementById("postComment").addEventListener("click", () => {
-      if (isBlocked(currentUserId)) {
-        alert("あなたはコメントできません（管理人により制限されています）");
-        return;
-      }
-
-      let text = document.getElementById("commentText").value.trim();
-      let nameInput = document.getElementById("commentUser").value.trim();
-      let userName = nameInput || "名無し";   // 未入力なら名無し
-
-      if (!text) {
-        alert("コメントを入力してください");
-        return;
-      }
-
-      let newComment = {
-        user: userName,
-        userId: currentUserId,
-        text: text,
-        date: new Date().toLocaleString(),
-        likes: 0,
-        likedUsers: [],
-        replies: []
-      };
-
-      if (!insect.comments) insect.comments = [];
-      insect.comments.push(newComment);
-
-      // 保存
-      localStorage.setItem("insects", JSON.stringify(insects));
-
-      // 表示更新
-      document.getElementById("commentText").value = "";
-      document.getElementById("commentUser").value = "";
-      renderComments();
-    });
+    loadDetail();
   </script>
 </body>
 </html>
