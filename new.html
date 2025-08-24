@@ -20,7 +20,7 @@
     <form id="newForm">
       <p>名称: <input type="text" id="name" required></p>
       <p>作成者: <input type="text" id="author" required></p>
-      <p>画像URL: <input type="text" id="image" placeholder="画像URLを入力"></p>
+      <p>画像ファイル: <input type="file" id="imageFile" accept="image/*"></p>
       <p>説明: <textarea id="description" rows="4" cols="40" placeholder="作品の説明を入力"></textarea></p>
       <p>更新キー: <input type="password" id="updateKey" required></p>
       <button type="submit">登録</button>
@@ -36,28 +36,40 @@
 
       let name = document.getElementById("name").value;
       let author = document.getElementById("author").value;
-      let image = document.getElementById("image").value;
       let description = document.getElementById("description").value;
       let updateKey = document.getElementById("updateKey").value;
+      let fileInput = document.getElementById("imageFile");
 
-      insects.push({
-        id: Date.now(),
-        serial: insects.length + 1,
-        name: name,
-        user: author,
-        image: image,
-        description: description, // ← 説明
-        userId: currentUserId,
-        updateKey: updateKey,     // ← 更新キー
-        date: new Date().toLocaleString(),
-        lastUpdated: null,
-        comments: [],
-        views: 0
-      });
+      if (fileInput.files.length > 0) {
+        let reader = new FileReader();
+        reader.onload = function(event) {
+          saveInsect(event.target.result); // Base64文字列を保存
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        saveInsect(""); // 画像なし
+      }
 
-      localStorage.setItem("insects", JSON.stringify(insects));
-      alert("登録しました！");
-      location.href = "list.html";
+      function saveInsect(imageData) {
+        insects.push({
+          id: Date.now(),
+          serial: insects.length + 1,
+          name: name,
+          user: author,
+          image: imageData,      // ← Base64 データ
+          description: description,
+          userId: currentUserId,
+          updateKey: updateKey,
+          date: new Date().toLocaleString(),
+          lastUpdated: null,
+          comments: [],
+          views: 0
+        });
+
+        localStorage.setItem("insects", JSON.stringify(insects));
+        alert("登録しました！");
+        location.href = "list.html";
+      }
     });
   </script>
 </body>
