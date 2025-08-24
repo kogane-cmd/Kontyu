@@ -14,11 +14,15 @@
       <a href="list.html">リスト</a>
     </nav>
   </header>
+
   <main>
     <h2>新規作品登録</h2>
     <form id="newForm">
       <p>名称: <input type="text" id="name" required></p>
       <p>作成者: <input type="text" id="author" required></p>
+      <p>画像URL: <input type="text" id="image" placeholder="画像URLを入力"></p>
+      <p>説明: <textarea id="description" rows="4" cols="40" placeholder="作品の説明を入力"></textarea></p>
+      <p>更新キー: <input type="password" id="updateKey" required></p>
       <button type="submit">登録</button>
     </form>
   </main>
@@ -29,16 +33,24 @@
 
     document.getElementById("newForm").addEventListener("submit", function(e){
       e.preventDefault();
+
       let name = document.getElementById("name").value;
       let author = document.getElementById("author").value;
+      let image = document.getElementById("image").value;
+      let description = document.getElementById("description").value;
+      let updateKey = document.getElementById("updateKey").value;
 
       insects.push({
         id: Date.now(),
         serial: insects.length + 1,
         name: name,
         user: author,
-        userId: currentUserId, // ← 保存必須
+        image: image,
+        description: description, // ← 説明
+        userId: currentUserId,
+        updateKey: updateKey,     // ← 更新キー
         date: new Date().toLocaleString(),
+        lastUpdated: null,
         comments: [],
         views: 0
       });
