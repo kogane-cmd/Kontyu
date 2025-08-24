@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>新規作成</title>
   <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
   <header>
@@ -28,47 +29,80 @@
   </main>
 
   <script>
+    // 画像を自動リサイズしてBase64で返す（localStorage節約）
+    function resizeImage(file, callback, opts = {}) {
+      const maxW = opts.maxWidth || 1000;     // 最大幅
+      const maxH = opts.maxHeight || 1000;    // 最大高さ
+      const quality = opts.quality || 0.8;    // JPEG圧縮率(0~1)
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          // 縦横比を保って最大サイズに収める
+          if (w > maxW || h > maxH) {
+            const scale = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          // 常にJPEGに変換（HEIC対策）
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          callback(dataUrl);
+        };
+        img.onerror = () => callback(""); // 読み込み失敗時は空
+        img.src = e.target.result;
+      };
+      reader.onerror = () => callback("");
+      reader.readAsDataURL(file);
+    }
+
     let insects = JSON.parse(localStorage.getItem("insects") || "[]");
     let currentUserId = localStorage.getItem("currentUserId") || "guest";
 
     document.getElementById("newForm").addEventListener("submit", function(e){
       e.preventDefault();
 
-      let name = document.getElementById("name").value;
-      let author = document.getElementById("author").value;
-      let description = document.getElementById("description").value;
-      let updateKey = document.getElementById("updateKey").value;
-      let fileInput = document.getElementById("imageFile");
+      const name = document.getElementById("name").value.trim();
+      const author = document.getElementById("author").value.trim();
+      const description = document.getElementById("description").value;
+      const updateKey = document.getElementById("updateKey").value;
+      const fileInput = document.getElementById("imageFile");
 
-      if (fileInput.files.length > 0) {
-        let reader = new FileReader();
-        reader.onload = function(event) {
-          saveInsect(event.target.result); // Base64文字列を保存
-        };
-        reader.readAsDataURL(fileInput.files[0]);
-      } else {
-        saveInsect(""); // 画像なし
-      }
-
-      function saveInsect(imageData) {
-        insects.push({
+      const save = (imageData) => {
+        const record = {
           id: Date.now(),
           serial: insects.length + 1,
-          name: name,
+          name,
           user: author,
-          image: imageData,      // ← Base64 データ
-          description: description,
+          image: imageData || "",    // Base64（空でもOK）
+          description,
           userId: currentUserId,
-          updateKey: updateKey,
+          updateKey,
           date: new Date().toLocaleString(),
           lastUpdated: null,
           comments: [],
           views: 0
-        });
+        };
+        try {
+          insects.push(record);
+          localStorage.setItem("insects", JSON.stringify(insects));
+          alert("登録しました！");
+          location.href = "list.html";
+        } catch (err) {
+          alert("保存に失敗しました。画像サイズが大きすぎる可能性があります。");
+        }
+      };
 
-        localStorage.setItem("insects", JSON.stringify(insects));
-        alert("登録しました！");
-        location.href = "list.html";
+      if (fileInput.files && fileInput.files.length > 0) {
+        resizeImage(fileInput.files[0], (dataUrl) => save(dataUrl), { maxWidth: 1000, maxHeight: 1000, quality: 0.8 });
+      } else {
+        save(""); // 画像なし
       }
     });
   </script>
