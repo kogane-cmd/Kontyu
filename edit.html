@@ -5,23 +5,14 @@
   <title>作品編集</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    h1 { color: green; }
+    main { padding: 20px; }
     label { display: block; margin-top: 10px; }
     input, textarea { width: 100%; padding: 6px; margin-top: 4px; }
-    button { margin-top: 15px; padding: 8px 15px; background: #0c0; color: #fff; border: none; cursor: pointer; }
-    button:hover { background: #090; }
-    .error { color: red; margin-top: 10px; }
-    header { background: #0c0; color: #fff; padding: 10px 20px;
-      display: flex; align-items: center; justify-content: space-between; }
-    header nav a { color: #fff; margin-left: 20px; text-decoration: none; font-weight: bold; }
-    header nav a:hover { text-decoration: underline; }
-    header img { height: 60px; }
+    button { margin-top: 15px; padding: 8px 15px; }
   </style>
 </head>
 <body>
   <header>
-    <a href="index.html"><img src="logo.png" alt="空想昆虫ロゴ"></a>
     <nav>
       <a href="index.html">トップ</a>
       <a href="new.html">新規作成</a>
@@ -30,24 +21,24 @@
   </header>
 
   <main>
-    <h1>作品を編集</h1>
-    <div id="formContainer" style="display:none;">
+    <h2>作品を編集</h2>
+    <div id="editForm">
       <label>名称: <input type="text" id="name"></label>
-      <label>作成者: <input type="text" id="user"></label>
       <label>説明: <textarea id="description"></textarea></label>
-      <label>画像ファイル: <input type="file" id="image" accept="image/*"></label>
-      <label>更新キーを入力: <input type="password" id="updateKeyInput"></label>
+      <label>作成者: <input type="text" id="user"></label>
+      <label>画像: <input type="file" id="imageFile" accept="image/*"></label>
+      <label>更新キー: <input type="password" id="updateKeyInput"></label>
       <button id="updateBtn">更新</button>
     </div>
-    <p class="error" id="error"></p>
+    <p><a href="list.html">← リストに戻る</a></p>
   </main>
 
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
       authDomain: "kontyu-project.firebaseapp.com",
@@ -59,70 +50,66 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const storage = getStorage(app);
 
-    // URLパラメータからID取得
+    // URLから作品ID取得
     const params = new URLSearchParams(window.location.search);
     const insectId = params.get("id");
 
-    const nameInput = document.getElementById("name");
-    const userInput = document.getElementById("user");
-    const descriptionInput = document.getElementById("description");
-    const imageInput = document.getElementById("image");
-    const updateKeyInput = document.getElementById("updateKeyInput");
-    const updateBtn = document.getElementById("updateBtn");
-    const errorEl = document.getElementById("error");
-    const formContainer = document.getElementById("formContainer");
-
-    let insectData = null;
+    let insect = null;
 
     async function loadInsect() {
-      if (!insectId) {
-        errorEl.textContent = "作品が見つかりません。";
-        return;
-      }
       const docRef = doc(db, "insects", insectId);
       const docSnap = await getDoc(docRef);
 
       if (!docSnap.exists()) {
-        errorEl.textContent = "作品が見つかりません。";
+        alert("作品が見つかりません");
         return;
       }
 
-      insectData = docSnap.data();
-      nameInput.value = insectData.name || "";
-      userInput.value = insectData.user || "";
-      descriptionInput.value = insectData.description || "";
-      formContainer.style.display = "block";
+      insect = { id: docSnap.id, ...docSnap.data() };
+
+      document.getElementById("name").value = insect.name || "";
+      document.getElementById("description").value = insect.description || "";
+      document.getElementById("user").value = insect.user || "";
     }
 
-    loadInsect();
+    // 更新処理
+    document.getElementById("updateBtn").addEventListener("click", async () => {
+      const inputKey = document.getElementById("updateKeyInput").value;
 
-    updateBtn.addEventListener("click", async () => {
-      const inputKey = updateKeyInput.value.trim();
-
-      if (inputKey !== (insectData.updateKey || "")) {
-        errorEl.textContent = "更新キーが違います。";
+      // 🔑 更新キー比較（ひらがなや漢字もそのまま比較OK）
+      if (!insect.updateKey || inputKey.trim() !== insect.updateKey.trim()) {
+        alert("更新キーが正しくありません");
         return;
       }
 
-      let imageUrl = insectData.image || "";
-      if (imageInput.files.length > 0) {
-        imageUrl = URL.createObjectURL(imageInput.files[0]); // 簡易的
+      const name = document.getElementById("name").value;
+      const description = document.getElementById("description").value;
+      const user = document.getElementById("user").value;
+      const file = document.getElementById("imageFile").files[0];
+
+      let imageUrl = insect.imageUrl || "";
+
+      if (file) {
+        const storageRef = ref(storage, "images/" + insectId + "_" + file.name);
+        await uploadBytes(storageRef, file);
+        imageUrl = await getDownloadURL(storageRef);
       }
 
-      const docRef = doc(db, "insects", insectId);
-      await updateDoc(docRef, {
-        name: nameInput.value,
-        user: userInput.value,
-        description: descriptionInput.value,
-        image: imageUrl,
-        date: new Date().toLocaleDateString(),
+      await updateDoc(doc(db, "insects", insectId), {
+        name,
+        description,
+        user,
+        imageUrl,
         lastUpdated: new Date().toISOString()
       });
 
-      alert("更新しました！");
-      location.href = `detail.html?id=${insectId}`;
+      alert("作品を更新しました！");
+      location.href = "detail.html?id=" + insectId;
     });
+
+    loadInsect();
   </script>
 </body>
 </html>
