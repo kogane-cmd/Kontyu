@@ -4,12 +4,6 @@
   <meta charset="UTF-8">
   <title>作品編集</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    main { padding: 20px; }
-    label { display: block; margin-top: 10px; }
-    input, textarea { width: 100%; padding: 6px; margin-top: 4px; }
-    button { margin-top: 15px; padding: 8px 15px; }
-  </style>
 </head>
 <body>
   <header>
@@ -23,17 +17,17 @@
   <main>
     <h2>作品を編集</h2>
     <div id="editForm">
-      <label>名称: <input type="text" id="name"></label>
-      <label>説明: <textarea id="description"></textarea></label>
-      <label>作成者: <input type="text" id="user"></label>
-      <label>画像: <input type="file" id="imageFile" accept="image/*"></label>
-      <label>更新キー: <input type="password" id="updateKeyInput"></label>
+      <label>名称: <input type="text" id="name"></label><br>
+      <label>説明: <textarea id="description"></textarea></label><br>
+      <label>作成者: <input type="text" id="user"></label><br>
+      <label>画像: <input type="file" id="imageFile" accept="image/*"></label><br>
+      <!-- 🔑 更新キーは type="text" にして日本語も入力できるようにした -->
+      <label>更新キー: <input type="text" id="updateKeyInput"></label><br>
       <button id="updateBtn">更新</button>
     </div>
     <p><a href="list.html">← リストに戻る</a></p>
   </main>
 
-  <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -52,12 +46,18 @@
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    // URLから作品ID取得
     const params = new URLSearchParams(window.location.search);
     const insectId = params.get("id");
-
     let insect = null;
 
+    // 日本時間にフォーマット
+    function formatDateJST(date) {
+      const d = new Date(date);
+      d.setHours(d.getHours() + 9);
+      return d.toISOString().replace("T", " ").substring(0, 19);
+    }
+
+    // データ読み込み
     async function loadInsect() {
       const docRef = doc(db, "insects", insectId);
       const docSnap = await getDoc(docRef);
@@ -78,8 +78,8 @@
     document.getElementById("updateBtn").addEventListener("click", async () => {
       const inputKey = document.getElementById("updateKeyInput").value;
 
-      // 🔑 更新キー比較（ひらがなや漢字もそのまま比較OK）
-      if (!insect.updateKey || inputKey.trim() !== insect.updateKey.trim()) {
+      // 🔑 日本語もOK、大小区別あり
+      if (!insect.updateKey || inputKey !== insect.updateKey) {
         alert("更新キーが正しくありません");
         return;
       }
@@ -102,7 +102,7 @@
         description,
         user,
         imageUrl,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: formatDateJST(new Date())
       });
 
       alert("作品を更新しました！");
