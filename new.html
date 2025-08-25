@@ -3,95 +3,69 @@
 <head>
   <meta charset="UTF-8">
   <title>新規作成</title>
-  <link rel="stylesheet" href="style.css">
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    h1 { color: green; }
-    label { display: block; margin-top: 10px; }
-    input, textarea { width: 100%; padding: 6px; margin-top: 4px; }
-    button { margin-top: 15px; padding: 8px 15px; background: #0c0; color: #fff; border: none; cursor: pointer; }
-    button:hover { background: #090; }
-    header { background: #0c0; color: #fff; padding: 10px 20px;
-      display: flex; align-items: center; justify-content: space-between; }
-    header nav a { color: #fff; margin-left: 20px; text-decoration: none; font-weight: bold; }
-    header nav a:hover { text-decoration: underline; }
-    header img { height: 60px; }
-  </style>
-</head>
-<body>
-  <header>
-    <a href="index.html"><img src="logo.png" alt="空想昆虫ロゴ"></a>
-    <nav>
-      <a href="index.html">トップ</a>
-      <a href="new.html">新規作成</a>
-      <a href="list.html">リスト</a>
-    </nav>
-  </header>
-
-  <main>
-    <h1>新しい作品を登録</h1>
-
-    <label>名称: <input type="text" id="name"></label>
-    <label>作成者: <input type="text" id="user"></label>
-    <label>説明: <textarea id="description"></textarea></label>
-    <label>画像ファイル: <input type="file" id="image" accept="image/*"></label>
-    <label>更新キー（編集用パスワード）: <input type="text" id="updateKey"></label>
-
-    <button id="saveBtn">保存</button>
-  </main>
-
-  <!-- Firebase SDK -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-    // Firebase設定
     const firebaseConfig = {
-      apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
-      authDomain: "kontyu-project.firebaseapp.com",
-      projectId: "kontyu-project",
-      storageBucket: "kontyu-project.appspot.com",
-      messagingSenderId: "1029388457127",
-      appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const storage = getStorage(app);
 
-    // ユーザーID管理
-    if (!localStorage.getItem("currentUserId")) {
-      localStorage.setItem("currentUserId", "guest");
-    }
-    const currentUserId = localStorage.getItem("currentUserId").trim().toLowerCase();
+    async function saveInsect(e) {
+      e.preventDefault();
 
-    // 保存処理
-    document.getElementById("saveBtn").addEventListener("click", async () => {
       const name = document.getElementById("name").value;
       const user = document.getElementById("user").value;
+      const userId = document.getElementById("userId").value;
       const description = document.getElementById("description").value;
       const updateKey = document.getElementById("updateKey").value;
-      const fileInput = document.getElementById("image");
+      const file = document.getElementById("image").files[0];
 
       let imageUrl = "";
-      if (fileInput.files.length > 0) {
-        imageUrl = URL.createObjectURL(fileInput.files[0]); // 簡易的にローカル表示用
+      if (file) {
+        const storageRef = ref(storage, "images/" + Date.now() + "_" + file.name);
+        await uploadBytes(storageRef, file);
+        imageUrl = await getDownloadURL(storageRef);
       }
 
       await addDoc(collection(db, "insects"), {
-        name,
-        user,
-        description,
+        name, user, userId, description,
         updateKey,
-        image: imageUrl,
-        views: 0,
-        date: new Date().toLocaleDateString(),
-        timestamp: serverTimestamp(),
-        userId: currentUserId   // ← 作成者IDを保存
+        imageUrl,
+        date: serverTimestamp(),
+        lastUpdated: serverTimestamp(),
+        views: 0
       });
 
-      alert("保存しました！");
+      alert("登録しました！");
       location.href = "list.html";
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("insectForm").addEventListener("submit", saveInsect);
     });
   </script>
+</head>
+<body>
+  <h2>新規作成</h2>
+  <form id="insectForm">
+    名称: <input id="name" required><br>
+    作成者: <input id="user" required><br>
+    作成者ID: <input id="userId" required><br>
+    説明: <textarea id="description"></textarea><br>
+    更新キー: <input id="updateKey" required><br>
+    画像: <input type="file" id="image" accept="image/*"><br>
+    <button type="submit">登録</button>
+  </form>
 </body>
 </html>
