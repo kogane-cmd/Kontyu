@@ -2,113 +2,97 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>作品編集</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header>
-    <nav>
-      <a href="index.html">トップ</a>
-      <a href="new.html">新規作成</a>
-      <a href="list.html">リスト</a>
-    </nav>
-  </header>
-
-  <main>
-    <h2>作品を編集</h2>
-    <div id="editForm">
-      <label>名称: <input type="text" id="name"></label><br>
-      <label>説明: <textarea id="description"></textarea></label><br>
-      <label>作成者: <input type="text" id="user"></label><br>
-      <label>画像: <input type="file" id="imageFile" accept="image/*"></label><br>
-      <label>更新キー: <input type="text" id="updateKeyInput"></label><br>
-      <button id="updateBtn">更新</button>
-    </div>
-    <p><a href="list.html">← リストに戻る</a></p>
-  </main>
-
+  <title>編集</title>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
-      authDomain: "kontyu-project.firebaseapp.com",
-      projectId: "kontyu-project",
-      storageBucket: "kontyu-project.appspot.com",
-      messagingSenderId: "1029388457127",
-      appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    const params = new URLSearchParams(window.location.search);
-    const insectId = params.get("id");
-    let insect = null;
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
 
-    // 日本時間フォーマット関数
-    function formatDateJST(date) {
-      const d = new Date(date);
-      d.setHours(d.getHours() + 9);
-      return d.toISOString().replace("T", " ").substring(0, 19);
-    }
-
-    // 作品ロード
     async function loadInsect() {
-      const docRef = doc(db, "insects", insectId);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
+      const docRef = doc(db, "insects", id);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
         alert("作品が見つかりません");
         return;
       }
-
-      insect = { id: docSnap.id, ...docSnap.data() };
-
-      document.getElementById("name").value = insect.name || "";
-      document.getElementById("description").value = insect.description || "";
-      document.getElementById("user").value = insect.user || "";
+      const data = snap.data();
+      document.getElementById("name").value = data.name || "";
+      document.getElementById("user").value = data.user || "";
+      document.getElementById("userId").value = data.userId || "";
+      document.getElementById("description").value = data.description || "";
+      document.getElementById("updateKey").value = "";
     }
 
-    // 更新処理
-    document.getElementById("updateBtn").addEventListener("click", async () => {
-      const inputKey = document.getElementById("updateKeyInput").value;
+    async function updateInsect(e) {
+      e.preventDefault();
+      const docRef = doc(db, "insects", id);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return;
 
-      // 🔑 日本語OK
-      if (!insect.updateKey || inputKey !== insect.updateKey) {
-        alert("更新キーが正しくありません");
+      const data = snap.data();
+      const enteredKey = document.getElementById("updateKey").value;
+      if (enteredKey !== data.updateKey) {
+        alert("更新キーが違います");
         return;
       }
 
-      const name = document.getElementById("name").value;
-      const description = document.getElementById("description").value;
-      const user = document.getElementById("user").value;
-      const file = document.getElementById("imageFile").files[0];
+      let newKey = document.getElementById("newUpdateKey").value || data.updateKey;
+      let imageUrl = data.imageUrl;
 
-      let imageUrl = insect.imageUrl || "";
-
+      const file = document.getElementById("image").files[0];
       if (file) {
-        const storageRef = ref(storage, "images/" + insectId + "_" + file.name);
+        const storageRef = ref(storage, "images/" + Date.now() + "_" + file.name);
         await uploadBytes(storageRef, file);
         imageUrl = await getDownloadURL(storageRef);
       }
 
-      await updateDoc(doc(db, "insects", insectId), {
-        name,
-        description,
-        user,
+      await updateDoc(docRef, {
+        name: document.getElementById("name").value,
+        user: document.getElementById("user").value,
+        userId: document.getElementById("userId").value,
+        description: document.getElementById("description").value,
+        updateKey: newKey,
         imageUrl,
-        lastUpdated: formatDateJST(new Date())
+        lastUpdated: serverTimestamp()
       });
 
-      alert("作品を更新しました！");
-      location.href = "detail.html?id=" + insectId;
-    });
+      alert("更新しました！");
+      location.href = "detail.html?id=" + id;
+    }
 
-    loadInsect();
+    window.addEventListener("DOMContentLoaded", () => {
+      loadInsect();
+      document.getElementById("editForm").addEventListener("submit", updateInsect);
+    });
   </script>
+</head>
+<body>
+  <h2>編集</h2>
+  <form id="editForm">
+    名称: <input id="name" required><br>
+    作成者: <input id="user" required><br>
+    作成者ID: <input id="userId" required><br>
+    説明: <textarea id="description"></textarea><br>
+    現在の更新キー: <input id="updateKey" required><br>
+    新しい更新キー: <input id="newUpdateKey"><br>
+    新しい画像: <input type="file" id="image" accept="image/*"><br>
+    <button type="submit">更新</button>
+  </form>
 </body>
 </html>
