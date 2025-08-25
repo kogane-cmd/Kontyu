@@ -10,6 +10,20 @@
     th { background-color: #cfc; }
     td a { color: green; text-decoration: none; }
     td a:hover { text-decoration: underline; }
+    .delete-btn, .edit-btn {
+      padding: 4px 8px;
+      margin: 2px;
+      border: none;
+      cursor: pointer;
+      color: white;
+    }
+    .delete-btn { background: #f55; }
+    .edit-btn { background: #28a745; }
+    .admin-controls { margin-top: 1em; text-align: right; }
+    .admin-controls button {
+      background: red; color: white; border: none;
+      padding: 6px 12px; cursor: pointer;
+    }
     .search-box { margin: 1em 0; }
     .search-box input { width: 300px; padding: 6px; }
     header { background: #0c0; color: #fff; padding: 10px 20px;
@@ -42,7 +56,7 @@
 
     <div class="search-box">
       <label for="searchInput">検索：</label>
-      <input type="text" id="searchInput" placeholder="名称 / 作成者 / 説明 / ID">
+      <input type="text" id="searchInput" placeholder="説明 / 名称 / 作成者 / ID">
     </div>
 
     <table>
@@ -54,18 +68,23 @@
           <th>登録日</th>
           <th>コメント数</th>
           <th>アクセス数</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody id="list"></tbody>
     </table>
+
+    <div class="admin-controls" id="adminControls" style="display:none;">
+      <button id="deleteAll">⚠ 全削除</button>
+    </div>
   </main>
 
-  <!-- Firebase SDK 読み込み -->
+  <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Firebase 設定
+    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
       authDomain: "kontyu-project.firebaseapp.com",
@@ -75,15 +94,36 @@
       appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
     };
 
-    // 初期化
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+
+    // ユーザーID管理
+    if (!localStorage.getItem("currentUserId")) {
+      localStorage.setItem("currentUserId", "guest");
+    }
+    const currentUserId = localStorage.getItem("currentUserId").trim().toLowerCase();
 
     const listContainer = document.getElementById("list");
     const sortSelect = document.getElementById("sortSelect");
     const searchInput = document.getElementById("searchInput");
 
-    // コメント数カウント（返信含む）
+    // 管理人なら全削除ボタン表示
+    if (currentUserId === "kanrinin") {
+      document.getElementById("adminControls").style.display = "block";
+      document.getElementById("deleteAll").addEventListener("click", async () => {
+        if (confirm("⚠ 本当に全作品を削除しますか？")) {
+          const snapshot = await getDocs(collection(db, "insects"));
+          const batch = writeBatch(db);
+          snapshot.forEach(d => {
+            batch.delete(doc(db, "insects", d.id));
+          });
+          await batch.commit();
+          loadInsects();
+        }
+      });
+    }
+
+    // コメント数カウント
     function countCommentsWithReplies(comments) {
       if (!comments) return 0;
       let count = comments.length;
@@ -93,12 +133,17 @@
       return count;
     }
 
-    // Firestore から作品をロード
+    async function deleteInsect(id) {
+      if (!confirm("削除しますか？")) return;
+      await deleteDoc(doc(db, "insects", id));
+      loadInsects();
+    }
+
     async function loadInsects() {
-      let querySnapshot = await getDocs(collection(db, "insects"));
+      const snapshot = await getDocs(collection(db, "insects"));
       let insects = [];
-      querySnapshot.forEach(doc => {
-        insects.push({ id: doc.id, ...doc.data() });
+      snapshot.forEach(docSnap => {
+        insects.push({ id: docSnap.id, ...docSnap.data() });
       });
       renderList(insects);
     }
@@ -129,6 +174,7 @@
       // 表描画
       listContainer.innerHTML = "";
       sorted.forEach((insect, index) => {
+        const canEditOrDelete = (currentUserId === "kanrinin" || currentUserId === (insect.userId || "").toLowerCase());
         let tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${index + 1}</td>
@@ -137,16 +183,36 @@
           <td>${insect.date || ""}</td>
           <td>${countCommentsWithReplies(insect.comments)}</td>
           <td>${insect.views || 0}</td>
+          <td></td>
         `;
+
+        if (canEditOrDelete) {
+          let td = tr.querySelector("td:last-child");
+
+          // 編集ボタン
+          let editBtn = document.createElement("button");
+          editBtn.textContent = "編集";
+          editBtn.className = "edit-btn";
+          editBtn.onclick = () => {
+            location.href = `edit.html?id=${insect.id}`;
+          };
+          td.appendChild(editBtn);
+
+          // 削除ボタン
+          let delBtn = document.createElement("button");
+          delBtn.textContent = "削除";
+          delBtn.className = "delete-btn";
+          delBtn.onclick = () => deleteInsect(insect.id);
+          td.appendChild(delBtn);
+        }
+
         listContainer.appendChild(tr);
       });
     }
 
-    // イベント
     sortSelect.addEventListener("change", loadInsects);
     searchInput.addEventListener("input", loadInsects);
 
-    // 初期ロード
     loadInsects();
   </script>
 </body>
