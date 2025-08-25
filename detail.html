@@ -3,71 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <title>作品詳細</title>
-</head>
-<body>
-  <main>
-    <h2 id="name"></h2>
-    <p><strong>作成者:</strong> <span id="user"></span></p>
-    <p id="description"></p>
-    <img id="image" src="" alt="昆虫画像" style="max-width:400px; display:none;">
-    <p><strong>最終更新日:</strong> <span id="lastUpdated"></span></p>
-    <p><a href="list.html">← リストに戻る</a></p>
-  </main>
-
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
-      authDomain: "kontyu-project.firebaseapp.com",
-      projectId: "kontyu-project",
-      storageBucket: "kontyu-project.appspot.com",
-      messagingSenderId: "1029388457127",
-      appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 日本時間フォーマット関数
-    function formatDateJST(date) {
-      const d = new Date(date);
-      d.setHours(d.getHours() + 9);
-      return d.toISOString().replace("T", " ").substring(0, 19);
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const insectId = params.get("id");
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
 
     async function loadDetail() {
-      const docRef = doc(db, "insects", insectId);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        document.body.innerHTML = "<p>作品が見つかりません</p>";
+      const docRef = doc(db, "insects", id);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        document.body.innerHTML = "<p>作品が見つかりません。</p>";
         return;
       }
+      const data = snap.data();
 
-      const data = docSnap.data();
-      document.getElementById("name").textContent = data.name || "名称なし";
-      document.getElementById("description").textContent = data.description || "";
-      document.getElementById("user").textContent = data.user || "匿名";
-
-      if (data.lastUpdated) {
-        document.getElementById("lastUpdated").textContent = formatDateJST(data.lastUpdated);
-      } else {
-        document.getElementById("lastUpdated").textContent = "不明";
-      }
+      document.getElementById("title").textContent = data.name;
+      document.getElementById("user").textContent = data.user;
+      document.getElementById("userId").textContent = data.userId;
+      document.getElementById("description").textContent = data.description;
+      document.getElementById("lastUpdated").textContent =
+        data.lastUpdated?.toDate().toLocaleString("ja-JP") || "";
 
       if (data.imageUrl) {
-        const img = document.getElementById("image");
-        img.src = data.imageUrl;
-        img.style.display = "block";
+        document.getElementById("image").src = data.imageUrl;
       }
     }
 
-    loadDetail();
+    window.addEventListener("DOMContentLoaded", loadDetail);
   </script>
+</head>
+<body>
+  <h2 id="title"></h2>
+  <p>作成者: <span id="user"></span> (ID: <span id="userId"></span>)</p>
+  <img id="image" alt="作品画像" style="max-width:300px; display:block;"><br>
+  <p id="description"></p>
+  <p>最終更新日: <span id="lastUpdated"></span></p>
+  <p><a href="list.html">← リストに戻る</a></p>
 </body>
 </html>
