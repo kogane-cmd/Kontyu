@@ -34,7 +34,7 @@
 
     <h2>最新昆虫リスト</h2>
     <table border="1" id="latestList">
-      <tr><th>No.</th><th>名称</th><th>作成者</th><th>コメント数</th><th>アクセス数</th></tr>
+      <tr><th>No.</th><th>名称</th><th>作成者(ID)</th><th>コメント数</th><th>アクセス数</th></tr>
     </table>
     <p><a href="list.html">もっと見る</a></p>
 
@@ -62,7 +62,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // コメント数カウント（再帰対応）
+    // コメント数カウント
     function countComments(comments) {
       if (!comments) return 0;
       let total = comments.length;
@@ -79,13 +79,15 @@
       const q = query(collection(db, "insects"), orderBy("timestamp", "desc"), limit(5));
       const snap = await getDocs(q);
 
-      snap.forEach((docSnap, idx) => {
+      let idx = 0;
+      snap.forEach(docSnap => {
         const data = docSnap.data();
+        idx++;
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${idx + 1}</td>
+          <td>${idx}</td>
           <td><a href="detail.html?id=${docSnap.id}">${data.name || "名称なし"}</a></td>
-          <td>${data.user || "匿名"}</td>
+          <td>${data.user || "匿名"}（ID: ${data.userId || "不明"}）</td>
           <td>${countComments(data.comments)}</td>
           <td>${data.views || 0}</td>
         `;
@@ -97,8 +99,7 @@
     async function loadLatestComments() {
       const latestComments = document.getElementById("latestComments");
 
-      // コメントは全作品から取得（最大5件）
-      const q = query(collection(db, "insects"), orderBy("timestamp", "desc"), limit(20)); // 最新20作品分をチェック
+      const q = query(collection(db, "insects"), orderBy("timestamp", "desc"), limit(20));
       const snap = await getDocs(q);
 
       let comments = [];
