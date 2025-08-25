@@ -30,59 +30,108 @@
     
     <h2>注意点</h2>
     <p>・IDが「kanrinin」でない場合、偽物です。</p>
-      
-<p>・追加してほしいものやバグ報告は、「管理人への報告」という作品にご連絡下さい。</p>
+    <p>・追加してほしいものやバグ報告は、「管理人への報告」という作品にご連絡下さい。</p>
 
     <h2>最新昆虫リスト</h2>
-    <table border="1" id="latestList"></table>
+    <table border="1" id="latestList">
+      <tr><th>No.</th><th>名称</th><th>作成者</th><th>コメント数</th><th>アクセス数</th></tr>
+    </table>
     <p><a href="list.html">もっと見る</a></p>
 
     <h2>最新コメント</h2>
-    <table border="1" id="latestComments"></table>
+    <table border="1" id="latestComments">
+      <tr><th>作品</th><th>ユーザー</th><th>コメント</th><th>日付</th></tr>
+    </table>
     <p><a href="comments.html">もっと見る</a></p>
   </main>
 
-  <script>
-    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // 最新作品リスト
-    const latestList = document.getElementById("latestList");
-    let latest = [...insects].sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,5);
-    latestList.innerHTML = "<tr><th>No.</th><th>名称</th><th>作成者</th><th>コメント数</th><th>アクセス数</th></tr>" +
-      latest.map(i => `<tr>
-        <td>${i.serial}</td>
-        <td><a href="detail.html?id=${i.id}">${i.name}</a></td>
-        <td>${i.user}</td>
-        <td>${countComments(i.comments)}</td>
-        <td>${i.views||0}</td>
-      </tr>`).join("");
+    const firebaseConfig = {
+      apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
+      authDomain: "kontyu-project.firebaseapp.com",
+      projectId: "kontyu-project",
+      storageBucket: "kontyu-project.appspot.com",
+      messagingSenderId: "1029388457127",
+      appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
+    };
 
-    // コメント数カウント
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // コメント数カウント（再帰対応）
     function countComments(comments) {
       if (!comments) return 0;
-      return comments.reduce((s,c)=>s+1+countComments(c.replies||[]),0);
+      let total = comments.length;
+      comments.forEach(c => {
+        total += countComments(c.replies || []);
+      });
+      return total;
+    }
+
+    // 最新昆虫リスト
+    async function loadLatestInsects() {
+      const latestList = document.getElementById("latestList");
+
+      const q = query(collection(db, "insects"), orderBy("timestamp", "desc"), limit(5));
+      const snap = await getDocs(q);
+
+      snap.forEach((docSnap, idx) => {
+        const data = docSnap.data();
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><a href="detail.html?id=${docSnap.id}">${data.name || "名称なし"}</a></td>
+          <td>${data.user || "匿名"}</td>
+          <td>${countComments(data.comments)}</td>
+          <td>${data.views || 0}</td>
+        `;
+        latestList.appendChild(tr);
+      });
     }
 
     // 最新コメントリスト
-    let comments = [];
-    insects.forEach(i => {
-      (i.comments||[]).forEach(c => collectComments(c,i));
-    });
-    function collectComments(c,insect) {
-      comments.push({...c,insectName:insect.name,insectId:insect.id});
-      (c.replies||[]).forEach(r=>collectComments(r,insect));
+    async function loadLatestComments() {
+      const latestComments = document.getElementById("latestComments");
+
+      // コメントは全作品から取得（最大5件）
+      const q = query(collection(db, "insects"), orderBy("timestamp", "desc"), limit(20)); // 最新20作品分をチェック
+      const snap = await getDocs(q);
+
+      let comments = [];
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        const insectId = docSnap.id;
+        const insectName = data.name || "名称なし";
+
+        (data.comments || []).forEach(c => collectComments(c, insectId, insectName, comments));
+      });
+
+      comments.sort((a,b)=> new Date(b.date) - new Date(a.date));
+      const latest5 = comments.slice(0,5);
+
+      latest5.forEach(c => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><a href="detail.html?id=${c.insectId}">${c.insectName}</a></td>
+          <td>${c.user}</td>
+          <td>${c.text}</td>
+          <td>${c.date}</td>
+        `;
+        latestComments.appendChild(tr);
+      });
     }
-    let latestComments = comments.sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
-    document.getElementById("latestComments").innerHTML =
-      "<tr><th>作品</th><th>ユーザー</th><th>コメント</th><th>日付</th></tr>"+
-      latestComments.map(c=>`<tr>
-        <td><a href="detail.html?id=${c.insectId}">${c.insectName}</a></td>
-        <td>${c.user}</td>
-        <td>${c.text}</td>
-        <td>${c.date}</td>
-      </tr>`).join("");
 
+    function collectComments(c, insectId, insectName, list) {
+      list.push({...c, insectId, insectName});
+      (c.replies || []).forEach(r => collectComments(r, insectId, insectName, list));
+    }
 
+    loadLatestInsects();
+    loadLatestComments();
   </script>
 </body>
 </html>
