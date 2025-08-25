@@ -21,7 +21,6 @@
       <label>説明: <textarea id="description"></textarea></label><br>
       <label>作成者: <input type="text" id="user"></label><br>
       <label>画像: <input type="file" id="imageFile" accept="image/*"></label><br>
-      <!-- 🔑 更新キーは type="text" にして日本語も入力できるようにした -->
       <label>更新キー: <input type="text" id="updateKeyInput"></label><br>
       <button id="updateBtn">更新</button>
     </div>
@@ -50,14 +49,14 @@
     const insectId = params.get("id");
     let insect = null;
 
-    // 日本時間にフォーマット
+    // 日本時間フォーマット関数
     function formatDateJST(date) {
       const d = new Date(date);
       d.setHours(d.getHours() + 9);
       return d.toISOString().replace("T", " ").substring(0, 19);
     }
 
-    // データ読み込み
+    // 作品ロード
     async function loadInsect() {
       const docRef = doc(db, "insects", insectId);
       const docSnap = await getDoc(docRef);
@@ -78,7 +77,7 @@
     document.getElementById("updateBtn").addEventListener("click", async () => {
       const inputKey = document.getElementById("updateKeyInput").value;
 
-      // 🔑 日本語もOK、大小区別あり
+      // 🔑 日本語OK
       if (!insect.updateKey || inputKey !== insect.updateKey) {
         alert("更新キーが正しくありません");
         return;
