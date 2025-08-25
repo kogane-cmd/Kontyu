@@ -4,11 +4,24 @@
   <meta charset="UTF-8">
   <title>作品編集</title>
   <link rel="stylesheet" href="style.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    h1 { color: green; }
+    label { display: block; margin-top: 10px; }
+    input, textarea { width: 100%; padding: 6px; margin-top: 4px; }
+    button { margin-top: 15px; padding: 8px 15px; background: #0c0; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #090; }
+    .error { color: red; margin-top: 10px; }
+    header { background: #0c0; color: #fff; padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between; }
+    header nav a { color: #fff; margin-left: 20px; text-decoration: none; font-weight: bold; }
+    header nav a:hover { text-decoration: underline; }
+    header img { height: 60px; }
+  </style>
 </head>
 <body>
   <header>
-    <a href="index.html"><img src="logo.png" alt="ロゴ" style="height:60px;"></a>
+    <a href="index.html"><img src="logo.png" alt="空想昆虫ロゴ"></a>
     <nav>
       <a href="index.html">トップ</a>
       <a href="new.html">新規作成</a>
@@ -17,115 +30,98 @@
   </header>
 
   <main>
-    <h2>作品編集</h2>
-    <form id="editForm">
-      <p>名称: <input type="text" id="name" required></p>
-      <p>作成者: <input type="text" id="author" required></p>
-
-      <p>現在の画像:</p>
-      <img id="currentImage" src="" alt="現在の画像" style="max-width:220px; display:block; margin-bottom:10px;">
-
-      <p>新しい画像ファイル（変更する場合のみ）:
-        <input type="file" id="imageFile" accept="image/*">
-      </p>
-
-      <p>説明: <textarea id="description" rows="4" cols="40"></textarea></p>
-
-      <p>更新キー（認証）: <input type="password" id="updateKeyInput" required></p>
-      <p>新しい更新キー（変更したい場合のみ）: <input type="password" id="newUpdateKey"></p>
-
-      <button type="submit">更新</button>
-    </form>
+    <h1>作品を編集</h1>
+    <div id="formContainer" style="display:none;">
+      <label>名称: <input type="text" id="name"></label>
+      <label>作成者: <input type="text" id="user"></label>
+      <label>説明: <textarea id="description"></textarea></label>
+      <label>画像ファイル: <input type="file" id="image" accept="image/*"></label>
+      <label>更新キーを入力: <input type="password" id="updateKeyInput"></label>
+      <button id="updateBtn">更新</button>
+    </div>
+    <p class="error" id="error"></p>
   </main>
 
-  <script>
-    function resizeImage(file, callback, opts = {}) {
-      const maxW = opts.maxWidth || 1000;
-      const maxH = opts.maxHeight || 1000;
-      const quality = opts.quality || 0.8;
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          let w = img.width, h = img.height;
-          if (w > maxW || h > maxH) {
-            const scale = Math.min(maxW / w, maxH / h);
-            w = Math.round(w * scale);
-            h = Math.round(h * scale);
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, w, h);
-          const dataUrl = canvas.toDataURL("image/jpeg", quality);
-          callback(dataUrl);
-        };
-        img.onerror = () => callback("");
-        img.src = e.target.result;
-      };
-      reader.onerror = () => callback("");
-      reader.readAsDataURL(file);
-    }
+    // Firebase設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
+      authDomain: "kontyu-project.firebaseapp.com",
+      projectId: "kontyu-project",
+      storageBucket: "kontyu-project.appspot.com",
+      messagingSenderId: "1029388457127",
+      appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
+    };
 
-    const params = new URLSearchParams(location.search);
-    const id = Number(params.get("id"));
-    let insects = JSON.parse(localStorage.getItem("insects") || "[]");
-    const insect = insects.find(i => i.id === id);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    if (!insect) {
-      alert("データがありません");
-      location.href = "list.html";
-    }
+    // URLパラメータからID取得
+    const params = new URLSearchParams(window.location.search);
+    const insectId = params.get("id");
 
-    // 既存データをフォームに反映
-    document.getElementById("name").value = insect.name;
-    document.getElementById("author").value = insect.user;
-    document.getElementById("description").value = insect.description || "";
-    document.getElementById("currentImage").src = insect.image || "";
+    const nameInput = document.getElementById("name");
+    const userInput = document.getElementById("user");
+    const descriptionInput = document.getElementById("description");
+    const imageInput = document.getElementById("image");
+    const updateKeyInput = document.getElementById("updateKeyInput");
+    const updateBtn = document.getElementById("updateBtn");
+    const errorEl = document.getElementById("error");
+    const formContainer = document.getElementById("formContainer");
 
-    document.getElementById("editForm").addEventListener("submit", function(e){
-      e.preventDefault();
+    let insectData = null;
 
-      // 認証：作品ごとの更新キー
-      const inputKey = document.getElementById("updateKeyInput").value;
-      if (inputKey !== insect.updateKey) {
-        alert("更新キーが違います！");
+    async function loadInsect() {
+      if (!insectId) {
+        errorEl.textContent = "作品が見つかりません。";
+        return;
+      }
+      const docRef = doc(db, "insects", insectId);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        errorEl.textContent = "作品が見つかりません。";
         return;
       }
 
-      // 共通フィールド更新
-      insect.name = document.getElementById("name").value.trim();
-      insect.user = document.getElementById("author").value.trim();
-      insect.description = document.getElementById("description").value;
+      insectData = docSnap.data();
+      nameInput.value = insectData.name || "";
+      userInput.value = insectData.user || "";
+      descriptionInput.value = insectData.description || "";
+      formContainer.style.display = "block";
+    }
 
-      // 新しい画像が選ばれていればリサイズして保存、なければそのまま
-      const fileInput = document.getElementById("imageFile");
-      const finalize = () => {
-        const newKey = document.getElementById("newUpdateKey").value;
-        if (newKey) {
-          insect.updateKey = newKey;
-        }
-        insect.lastUpdated = new Date().toLocaleString();
+    loadInsect();
 
-        try {
-          localStorage.setItem("insects", JSON.stringify(insects));
-          alert("更新しました！");
-          location.href = "list.html";
-        } catch (err) {
-          alert("保存に失敗しました。画像サイズが大きすぎる可能性があります。");
-        }
-      };
+    updateBtn.addEventListener("click", async () => {
+      const inputKey = updateKeyInput.value.trim();
 
-      if (fileInput.files && fileInput.files.length > 0) {
-        resizeImage(fileInput.files[0], (dataUrl) => {
-          if (dataUrl) insect.image = dataUrl; // 新画像に置き換え
-          finalize();
-        }, { maxWidth: 1000, maxHeight: 1000, quality: 0.8 });
-      } else {
-        finalize();
+      if (inputKey !== (insectData.updateKey || "")) {
+        errorEl.textContent = "更新キーが違います。";
+        return;
       }
+
+      let imageUrl = insectData.image || "";
+      if (imageInput.files.length > 0) {
+        imageUrl = URL.createObjectURL(imageInput.files[0]); // 簡易的
+      }
+
+      const docRef = doc(db, "insects", insectId);
+      await updateDoc(docRef, {
+        name: nameInput.value,
+        user: userInput.value,
+        description: descriptionInput.value,
+        image: imageUrl,
+        date: new Date().toLocaleDateString(),
+        lastUpdated: new Date().toISOString()
+      });
+
+      alert("更新しました！");
+      location.href = `detail.html?id=${insectId}`;
     });
   </script>
 </body>
