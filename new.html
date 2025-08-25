@@ -6,34 +6,39 @@
   <link rel="stylesheet" href="style.css">
   <style>
     body { font-family: sans-serif; margin: 20px; }
+    h1 { color: green; }
     label { display: block; margin-top: 10px; }
     input, textarea { width: 100%; padding: 6px; margin-top: 4px; }
-    button { margin-top: 15px; padding: 8px 16px; background: green; color: white; border: none; cursor: pointer; }
-    button:hover { background: darkgreen; }
+    button { margin-top: 15px; padding: 8px 15px; background: #0c0; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #090; }
+    header { background: #0c0; color: #fff; padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between; }
+    header nav a { color: #fff; margin-left: 20px; text-decoration: none; font-weight: bold; }
+    header nav a:hover { text-decoration: underline; }
+    header img { height: 60px; }
   </style>
 </head>
 <body>
-  <h1>作品を新規登録</h1>
+  <header>
+    <a href="index.html"><img src="logo.png" alt="空想昆虫ロゴ"></a>
+    <nav>
+      <a href="index.html">トップ</a>
+      <a href="new.html">新規作成</a>
+      <a href="list.html">リスト</a>
+    </nav>
+  </header>
 
-  <form id="newForm">
-    <label>名称:
-      <input type="text" id="name" required>
-    </label>
+  <main>
+    <h1>新しい作品を登録</h1>
 
-    <label>作成者:
-      <input type="text" id="user" required>
-    </label>
+    <label>名称: <input type="text" id="name"></label>
+    <label>作成者: <input type="text" id="user"></label>
+    <label>説明: <textarea id="description"></textarea></label>
+    <label>画像ファイル: <input type="file" id="image" accept="image/*"></label>
+    <label>更新キー（編集用パスワード）: <input type="text" id="updateKey"></label>
 
-    <label>説明:
-      <textarea id="description"></textarea>
-    </label>
-
-    <label>画像URL（仮対応: ファイルは後でStorageに）:
-      <input type="text" id="image">
-    </label>
-
-    <button type="submit">登録</button>
-  </form>
+    <button id="saveBtn">保存</button>
+  </main>
 
   <!-- Firebase SDK -->
   <script type="module">
@@ -50,43 +55,42 @@
       appId: "1:1029388457127:web:e4da23d8c3cab39de03782"
     };
 
-    // 初期化
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // フォーム送信処理
-    document.getElementById("newForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    // ユーザーID管理
+    if (!localStorage.getItem("currentUserId")) {
+      localStorage.setItem("currentUserId", "guest");
+    }
+    const currentUserId = localStorage.getItem("currentUserId").trim().toLowerCase();
 
-      const name = document.getElementById("name").value.trim();
-      const user = document.getElementById("user").value.trim();
-      const description = document.getElementById("description").value.trim();
-      const image = document.getElementById("image").value.trim();
+    // 保存処理
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const name = document.getElementById("name").value;
+      const user = document.getElementById("user").value;
+      const description = document.getElementById("description").value;
+      const updateKey = document.getElementById("updateKey").value;
+      const fileInput = document.getElementById("image");
 
-      if (!name || !user) {
-        alert("名称と作成者は必須です");
-        return;
+      let imageUrl = "";
+      if (fileInput.files.length > 0) {
+        imageUrl = URL.createObjectURL(fileInput.files[0]); // 簡易的にローカル表示用
       }
 
-      try {
-        await addDoc(collection(db, "insects"), {
-          name,
-          user,
-          description,
-          image,
-          views: 0,
-          comments: [],
-          date: new Date().toLocaleDateString(),
-          timestamp: Date.now(),
-          createdAt: serverTimestamp()
-        });
+      await addDoc(collection(db, "insects"), {
+        name,
+        user,
+        description,
+        updateKey,
+        image: imageUrl,
+        views: 0,
+        date: new Date().toLocaleDateString(),
+        timestamp: serverTimestamp(),
+        userId: currentUserId   // ← 作成者IDを保存
+      });
 
-        alert("作品を登録しました！");
-        window.location.href = "list.html";
-      } catch (error) {
-        console.error("エラー:", error);
-        alert("登録に失敗しました");
-      }
+      alert("保存しました！");
+      location.href = "list.html";
     });
   </script>
 </body>
