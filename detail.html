@@ -4,28 +4,29 @@
   <meta charset="UTF-8">
   <title>作品詳細</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    h1 { color: green; }
-    .info { margin-top: 10px; }
-    img { max-width: 400px; margin-top: 10px; }
-    .back { margin-top: 20px; display: inline-block; }
-  </style>
 </head>
 <body>
-  <h1 id="title">作品詳細</h1>
-  <div id="info" class="info"></div>
-  <img id="image" alt="作品画像">
-  <p><strong>説明:</strong></p>
-  <p id="description"></p>
-  <a href="list.html" class="back">← リストに戻る</a>
+  <header>
+    <nav>
+      <a href="index.html">トップ</a>
+      <a href="new.html">新規作成</a>
+      <a href="list.html">リスト</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2 id="name"></h2>
+    <p><strong>作成者:</strong> <span id="user"></span></p>
+    <p id="description"></p>
+    <img id="image" src="" alt="昆虫画像" style="max-width:400px; display:none;">
+    <p><strong>最終更新日:</strong> <span id="lastUpdated"></span></p>
+  </main>
 
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyCScKcpIL1xX2gGDpVS3HpIof0_QONLULm8",
       authDomain: "kontyu-project.firebaseapp.com",
@@ -38,41 +39,29 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // URLパラメータからid取得
     const params = new URLSearchParams(window.location.search);
-    const id = params.get("id");
+    const insectId = params.get("id");
 
     async function loadDetail() {
-      if (!id) {
-        document.getElementById("info").textContent = "作品が見つかりません。";
+      const docRef = doc(db, "insects", insectId);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        document.body.innerHTML = "<p>作品が見つかりません</p>";
         return;
       }
 
-      const ref = doc(db, "insects", id);
-      const snap = await getDoc(ref);
+      const data = docSnap.data();
+      document.getElementById("name").textContent = data.name || "名称なし";
+      document.getElementById("description").textContent = data.description || "";
+      document.getElementById("user").textContent = data.user || "匿名";
+      document.getElementById("lastUpdated").textContent = data.lastUpdated || "不明";
 
-      if (!snap.exists()) {
-        document.getElementById("info").textContent = "作品が見つかりません。";
-        return;
+      if (data.imageUrl) {
+        const img = document.getElementById("image");
+        img.src = data.imageUrl;
+        img.style.display = "block";
       }
-
-      const data = snap.data();
-
-      document.getElementById("title").textContent = data.name || "名称なし";
-      document.getElementById("info").innerHTML = `
-        <p><strong>作成者:</strong> ${data.user || "匿名"}</p>
-        <p><strong>登録日:</strong> ${data.date || ""}</p>
-        <p><strong>アクセス数:</strong> ${data.views || 0}</p>
-      `;
-      document.getElementById("description").textContent = data.description || "説明なし";
-      if (data.image) {
-        document.getElementById("image").src = data.image;
-      } else {
-        document.getElementById("image").style.display = "none";
-      }
-
-      // アクセス数を+1
-      await updateDoc(ref, { views: increment(1) });
     }
 
     loadDetail();
